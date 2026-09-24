@@ -87,6 +87,8 @@ CREATE TABLE utilisateur (
     email               VARCHAR(255) NOT NULL UNIQUE,
     mot_de_passe_hash   VARCHAR(255) NOT NULL,
     est_administrateur  BOOLEAN      NOT NULL DEFAULT FALSE,
+    version_jeton       INTEGER      NOT NULL DEFAULT 1
+        CHECK (version_jeton > 0),
     cree_le             TIMESTAMPTZ  NOT NULL DEFAULT now(),
 
     CONSTRAINT ck_utilisateur_email CHECK (position('@' IN email) > 1)
@@ -95,9 +97,20 @@ CREATE TABLE utilisateur (
 COMMENT ON TABLE utilisateur IS
     'Comptes. Le visiteur n''a pas de ligne : c''est l''absence d''authentification.';
 COMMENT ON COLUMN utilisateur.est_administrateur IS
-    'Seul rôle global. Capitaine et joueur sont contextuels (table composer).';
+    'Seul rôle global. Capitaine et joueur sont contextuels (table composer).
+     Relu en base à chaque requête : le jeton ne fait pas foi sur les droits.';
 COMMENT ON COLUMN utilisateur.mot_de_passe_hash IS
-    'Empreinte argon2 ou bcrypt. Jamais de mot de passe en clair.';
+    'Empreinte calculée par werkzeug.security (scrypt). Jamais de mot de passe
+     en clair.';
+COMMENT ON COLUMN utilisateur.version_jeton IS
+    'Permet de révoquer les jetons JWT, qui ne sont pas révocables par nature.
+     Le jeton embarque cette valeur à l''émission ; le serveur la compare à
+     chaque requête et rejette le jeton si elles diffèrent. Incrémenter cette
+     colonne invalide instantanément tous les jetons déjà émis pour ce compte :
+     changement de mot de passe, retrait des droits d''administrateur, soupçon
+     de vol, déconnexion de toutes les sessions.
+     Coût nul : la ligne utilisateur est déjà lue à chaque requête pour
+     vérifier est_administrateur.';
 
 
 -- =============================================================================
@@ -394,3 +407,23 @@ JOIN (VALUES
     ('Overwatch 2',       'Soutien 1'),
     ('Overwatch 2',       'Soutien 2')
 ) AS r(jeu, libelle) ON r.jeu = j.nom_jeu;
+
+
+-- =============================================================================
+--  11. Mise à jour d'une base déjà créée
+-- =============================================================================
+--
+--  Si votre conteneur tourne déjà avec l'ancien schéma, la colonne
+--  version_jeton ne sera pas ajoutée automatiquement : le dossier
+--  /docker-entrypoint-initdb.d n'est rejoué qu'à la création du volume.
+--
+--  Deux possibilités :
+--
+--    a) Repartir de zéro (recommandé tant qu'il n'y a pas de données) :
+--         docker compose down -v && docker compose up -d
+--
+--    b) Appliquer uniquement le changement :
+--         ALTER TABLE utilisateur
+--             ADD COLUMN version_jeton INTEGER NOT NULL DEFAULT 1
+--             CHECK (version_jeton > 0);
+-- =============================================================================
