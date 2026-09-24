@@ -1,0 +1,22 @@
+# Versions figées : tout le monde installe exactement la même chose.
+# Pour mettre à jour une dépendance, changer la version ici et tester —
+# jamais d'installation à la main sans la répercuter dans ce fichier.
+
+# Serveur web
+Flask==3.1.3
+Werkzeug==3.1.8
+Flask-Cors==6.0.5
+
+# Temps réel
+Flask-SocketIO==5.6.1
+simple-websocket==1.1.0
+
+# Accès base de données
+SQLAlchemy==2.0.54
+pg8000==1.31.5
+
+# Configuration
+python-dotenv==1.2.2
+
+# Tests
+pytest==9.1.1
