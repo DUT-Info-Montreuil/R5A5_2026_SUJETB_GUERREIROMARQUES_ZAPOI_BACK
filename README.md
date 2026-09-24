@@ -1,165 +1,191 @@
-# Tournament Organizer — API
+# Tournament Organizer — API (back-end)
 
-API de la plateforme de tournois de l'association étudiante (R5A5, sujet B).
+L'API de la plateforme de tournois (R5A5, sujet B), en Flask, avec sa base
+PostgreSQL. L'interface est dans le dépôt
+`R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_FRONT`.
 
-Ce dépôt contient le back-end : une API REST en Flask, un canal temps réel en
-WebSocket, et le schéma de la base PostgreSQL. L'interface est dans le dépôt
-**`R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_FRONT`**, qui a besoin de cette API
-pour fonctionner.
-
-| Document | Contenu |
-|---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Organisation du code, règles entre les couches, conventions |
-| [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Contrat figé entre le front et le back |
-| [`docs/decisions/`](docs/decisions/) | Fiches de décision |
+> **Toutes les commandes ci-dessous sont à taper dans PowerShell**, depuis le
+> dossier du dépôt — par exemple `C:\Users\fabio\Projets\back`.
+> Git Bash ne comprend pas les mêmes commandes : voir [Git Bash](#git-bash).
 
 ---
 
-## Prérequis
+## 1. Installation — une seule fois
 
-- **Docker** (Docker Desktop sous Windows ou macOS) — pour PostgreSQL
-- **Python 3.11 ou plus récent**
-- **Git**
+Il faut avoir installé **Docker Desktop** (démarré), **Python 3.11+** et **Git**.
 
-Rien d'autre : PostgreSQL n'est **pas** à installer sur la machine.
+**① Démarrer la base de données**
 
----
-
-## Installation
-
-### 1. Base de données
-
-```bash
+```powershell
 docker compose up -d
+docker compose ps
 ```
 
-PostgreSQL 16 démarre, crée la base `tournois` et joue automatiquement les
-scripts du dossier `sql/` : le schéma, puis la suite de tests d'intégrité.
+✅ Attendu : la ligne `r5a5_db` indique `healthy` (compter une dizaine de
+secondes, relancer `docker compose ps` si elle indique encore `starting`).
 
-Vérifier qu'elle tourne :
+**② Créer l'environnement Python**
 
-```bash
-docker compose ps        # r5a5_db doit être « healthy »
-```
-
-Une interface d'inspection (Adminer) est disponible sur `http://localhost:8080` :
-serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournois`.
-
-### 2. Environnement Python
-
-```bash
+```powershell
 python -m venv .venv
 ```
 
-Activation :
+✅ Attendu : un dossier `.venv` apparaît.
+❌ `Python est introuvable` → remplacer `python` par `py` pour cette commande.
 
-```bash
-# Windows (PowerShell)
+**③ Activer l'environnement**
+
+```powershell
 .\.venv\Scripts\Activate.ps1
-
-# macOS / Linux
-source .venv/bin/activate
 ```
 
-Installation des dépendances :
+✅ Attendu : `(.venv)` apparaît au début de la ligne de commande.
 
-```bash
+**④ Installer les dépendances**
+
+```powershell
 python -m pip install -r requirements.txt
 ```
 
-> Toujours `python -m pip` plutôt que `pip`, et `python -m flask` plutôt que
-> `flask` : voir [Dépannage sous Windows](#dépannage-sous-windows).
+**⑤ Créer le fichier de configuration**
 
-### 3. Configuration
-
-```bash
-cp .env.example .env
-```
-
-Les valeurs par défaut conviennent au docker-compose fourni. Seule
-`FLASK_SECRET_KEY` doit être remplacée ; en générer une avec :
-
-```bash
+```powershell
+Copy-Item .env.example .env
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Le fichier `.env` n'est jamais versionné.
+La seconde commande affiche une clé. Ouvrir le fichier `.env` et la coller
+après `FLASK_SECRET_KEY=`, à la place de la valeur d'exemple.
+
+Le `.env` ne doit **jamais** être commité : il est déjà dans le `.gitignore`.
 
 ---
 
-## Lancement
+## 2. À chaque nouveau terminal
 
-```bash
-python -m project_organizer
+Un terminal qui vient de s'ouvrir n'a **pas** l'environnement activé.
+Avant toute commande `python` :
+
+```powershell
+cd C:\Users\fabio\Projets\back
+.\.venv\Scripts\Activate.ps1
 ```
 
-| Adresse | Rôle |
-|---|---|
-| `http://localhost:5000/health` | État de l'API et de la base |
+Si `(.venv)` n'est pas au début de la ligne, les commandes `python` échouent.
 
-Si `/health` répond `"statut": "ok"` avec `"tables": 9`, tout est en place.
+> Dans PyCharm, ouvrir ce dossier comme projet : son terminal active
+> l'environnement tout seul.
 
 ---
 
-## Tests
+## 3. Vérifier que tout fonctionne
 
-```bash
+Trois vérifications, dans l'ordre. Si les trois sont bonnes, le back est
+opérationnel.
+
+**① La base tourne**
+
+```powershell
+docker compose ps
+```
+
+✅ `r5a5_db` est `healthy`.
+
+**② Les tests passent**
+
+```powershell
 python -m pytest
 ```
 
-Les tests notés portent sur les **droits d'accès** : pour chaque règle du
-sujet, un test vérifie qu'un utilisateur non autorisé est bien refusé.
+✅ `14 passed`.
 
-Les contraintes d'intégrité de la base ont leur propre suite, rejouée à chaque
-création du conteneur. Pour la relancer à la main :
+**③ Le serveur répond**
 
-```bash
-docker compose exec -T db psql -U r5a5 -d tournois -v ON_ERROR_STOP=1 < sql/tests_contraintes.sql
-```
-
----
-
-## Commandes utiles
-
-| Besoin | Commande |
-|---|---|
-| Voir les logs de la base | `docker compose logs -f db` |
-| Arrêter la base | `docker compose down` |
-| Repartir d'une base vide | `docker compose down -v && docker compose up -d` |
-| Ouvrir un terminal SQL | `docker compose exec db psql -U r5a5 -d tournois` |
-
-> Le dossier `sql/` n'est rejoué **qu'à la création** du volume. Après une
-> modification du schéma, `docker compose up` ne suffit pas : utiliser
-> `docker compose down -v`.
-
----
-
-## Dépannage sous Windows
-
-**« Une stratégie de contrôle d'application a bloqué ce fichier »**
-
-Le contrôle d'application de Windows peut bloquer les exécutables générés dans
-`.venv\Scripts\` (`pip.exe`, `flask.exe`…). Les appeler à travers Python
-contourne le problème, sans rien désactiver :
-
-```bash
-python -m pip install -r requirements.txt
+```powershell
 python -m project_organizer
 ```
 
-**Pilote PostgreSQL**
+Laisser ce terminal ouvert : c'est le serveur, il affiche une ligne à chaque
+requête. Ouvrir ensuite dans le navigateur :
 
-Le projet utilise `pg8000`, un pilote écrit entièrement en Python. Le pilote
-habituel, `psycopg`, embarque une bibliothèque native que la même protection
-bloque. Rien à faire : c'est déjà configuré.
+| Adresse | ✅ Attendu |
+|---|---|
+| http://localhost:5000/health | `"statut": "ok"` et `"tables": 9` |
+| http://localhost:5000/rien | `"erreur": "Not Found"` |
+| http://localhost:5000/apidoc/swagger | La documentation de l'API, avec la route `/health` |
 
-**PowerShell refuse d'activer l'environnement virtuel**
+Pour arrêter le serveur : `Ctrl + C` dans son terminal.
+
+---
+
+## 4. En cas de problème
+
+| Message | Cause | Solution |
+|---|---|---|
+| `Python est introuvable ; exécutez sans arguments…` | L'environnement n'est pas activé | [Section 2](#2-à-chaque-nouveau-terminal). À la toute première installation, utiliser `py` |
+| `No module named pytest` (ou `flask`, `pydantic`, `flask_pydantic_spec`…) | Dépendances non installées dans ce `.venv` | `python -m pip install -r requirements.txt` |
+| `Variable d'environnement manquante : DATABASE_URL` | Pas de fichier `.env` | Étape ⑤ de l'installation |
+| `Une stratégie de contrôle d'application a bloqué…` | Windows bloque `pip.exe` ou `flask.exe` | Toujours passer par `python -m pip`, `python -m pytest`… |
+| `Activate.ps1 … n'est pas signé` / exécution désactivée | Politique PowerShell | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, une seule fois |
+| `The container name "/r5a5_db" is already in use` | Un ancien conteneur existe, venant d'un autre dossier | `docker rm -f r5a5_db r5a5_adminer` puis `docker compose up -d` |
+| `/health` renvoie `"statut": "degrade"` | La base est arrêtée | `docker compose up -d` |
+| `column … version_jeton does not exist` | La base a été créée avec une ancienne version du schéma | [Réinitialiser la base](#réinitialiser-la-base) |
+| `"tables": 0` | La connexion vise la mauvaise base | Vérifier `DATABASE_URL` dans `.env` |
+| `port is already allocated` sur 5432 | Un autre PostgreSQL tourne sur la machine | Dans `docker-compose.yml`, remplacer `"5432:5432"` par `"5433:5432"`, et le port dans `DATABASE_URL` |
+| Le port 5000 est occupé | Un ancien serveur tourne encore | Fermer l'autre terminal, ou `Ctrl + C` dedans |
+| La page `/apidoc/swagger` reste blanche | L'interface Swagger est chargée depuis Internet (cdn.jsdelivr.net) | Vérifier la connexion Internet ; la description brute reste lisible sur `/apidoc/openapi.json` |
+
+---
+
+## 5. Commandes utiles
+
+### Réinitialiser la base
+
+Le dossier `sql/` n'est joué **qu'à la création** de la base. Après une
+modification du schéma, il faut la recréer — toutes les données sont perdues :
 
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+docker compose down -v
+docker compose up -d
 ```
 
-**Le port 5432 est déjà utilisé**
+### Autres commandes
 
-Un autre PostgreSQL tourne sur la machine. Dans `docker-compose.yml`, remplacer
-`"5432:5432"` par `"5433:5432"`, puis ajuster le port dans `DATABASE_URL`.
+| Besoin | Commande |
+|---|---|
+| Arrêter la base (données conservées) | `docker compose down` |
+| Voir les logs de la base | `docker compose logs -f db` |
+| Ouvrir un terminal SQL | `docker compose exec db psql -U r5a5 -d tournois` |
+| Voir la structure d'une table | `docker compose exec db psql -U r5a5 -d tournois -c "\d utilisateur"` |
+| Interface web de la base | http://localhost:8080 — serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournois` |
+| Rejouer les tests d'intégrité SQL | `Get-Content sql\tests_contraintes.sql \| docker compose exec -T db psql -U r5a5 -d tournois -v ON_ERROR_STOP=1` |
+
+---
+
+## 6. Pour aller plus loin
+
+| Document | Contenu |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Où ranger quoi, règles entre les couches, conventions |
+| http://localhost:5000/apidoc/swagger | Documentation de l'API, générée depuis le code (serveur démarré) |
+| [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Contrat entre le front et le back : règles communes, et routes pas encore implémentées |
+| [`docs/decisions/`](docs/decisions/) | Fiches de décision |
+
+Pour ajouter une route, recopier le trajet de `/health`, qui traverse toutes
+les couches : `controllers/sante_controller.py` → `services/sante_service.py`
+→ `repository/sante_repository.py`, avec `dtos/sante_dto.py` pour les modèles
+de réponse. La liste de contrôle complète est au §12 de `ARCHITECTURE.md`.
+
+---
+
+## Git Bash
+
+Si vous utilisez Git Bash au lieu de PowerShell, trois commandes changent :
+
+| PowerShell | Git Bash |
+|---|---|
+| `.\.venv\Scripts\Activate.ps1` | `source .venv/Scripts/activate` |
+| `Copy-Item .env.example .env` | `cp .env.example .env` |
+| `Get-Content sql\tests_contraintes.sql \| docker compose exec …` | `docker compose exec -T … < sql/tests_contraintes.sql` |
+
+Sur macOS ou Linux, même chose, avec `source .venv/bin/activate`.

@@ -13,7 +13,7 @@ from flask_cors import CORS
 
 from .config import Config
 from .controllers.sante_controller import sante_bp
-from .extensions import socketio
+from .extensions import socketio, spec
 from .utils import database, erreurs, journalisation, requetes
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,9 @@ def create_app(config: type[Config] = Config) -> Flask:
 
     # --- Routes : un Blueprint par ressource ---------------------------------
     app.register_blueprint(sante_bp)
+
+    # Après les Blueprints : la documentation décrit les routes enregistrées.
+    spec.register(app)
 
     logger.info("Application démarrée", extra={"contexte": {"originesCors": config.CORS_ORIGINS}})
     return app

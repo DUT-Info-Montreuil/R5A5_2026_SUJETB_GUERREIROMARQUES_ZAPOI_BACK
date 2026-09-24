@@ -14,9 +14,11 @@ Choix du code — contrat §1.2 et §1.3 :
     422 UnprocessableEntity   violation d'une RÈGLE MÉTIER (poste occupé, B-07)
 """
 
+import json
 import logging
 
-from flask import Flask, jsonify
+from flask import Flask, Request, Response, jsonify
+from pydantic import ValidationError
 from werkzeug.exceptions import HTTPException
 
 logger = logging.getLogger(__name__)
@@ -82,3 +84,31 @@ def enregistrer_gestionnaires(app: Flask) -> None:
     def _erreur_inattendue(_erreur: Exception):
         logger.exception("Erreur non gérée")
         return jsonify({"erreur": "Internal Server Error", "detail": "Erreur interne."}), 500
+
+
+
+# --- Crochets de flask-pydantic-spec -----------------------------------------
+# La bibliothèque produit ses propres réponses d'erreur ; ces deux crochets les
+# réécrivent au format du contrat, pour que le front n'ait qu'une forme à lire.
+
+def avant_validation(_requete: Request, reponse: Response | None, erreur: ValidationError | None, _vue) -> None:
+    """Corps de requête invalide → 400 { erreur, detail: { champs: [...] } }."""
+    if erreur is None or reponse is None:
+        return
+    champs = [
+        {"champ": ".".join(str(morceau) for morceau in probleme["loc"]), "message": probleme["msg"]}
+        for probleme in erreur.errors()
+    ]
+    reponse.set_data(json.dumps({"erreur": "Bad Request", "detail": {"champs": champs}}, ensure_ascii=False))
+
+
+def apres_validation(_requete: Request, reponse: Response, erreur: ValidationError | None, _vue) -> None:
+    """Réponse non conforme à son DTO → 500 au format du contrat.
+
+    C'est un bug de notre code, pas du client : la documentation annoncerait
+    une forme que la route ne renvoie pas.
+    """
+    if erreur is None:
+        return
+    logger.error("Réponse non conforme à son DTO", extra={"contexte": {"erreur": str(erreur)}})
+    reponse.set_data(json.dumps({"erreur": "Internal Server Error", "detail": "Erreur interne."}))

@@ -9,7 +9,8 @@ DATABASE_URL — celle du docker-compose par défaut, qui doit être démarrée.
 import os
 
 import pytest
-from flask import Blueprint
+from flask import Blueprint, jsonify
+from flask_pydantic_spec import Response
 
 os.environ.setdefault("DATABASE_URL", "postgresql+pg8000://r5a5:r5a5@localhost:5432/tournois")
 os.environ.setdefault("FLASK_SECRET_KEY", "cle-de-test-suffisamment-longue-pour-hs256-0123456789")
@@ -17,7 +18,14 @@ os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
 os.environ.setdefault("LOG_FORMAT", "texte")
 
 from project_organizer.app import create_app  # noqa: E402
+from project_organizer.dtos.base import ModeleEntree  # noqa: E402
+from project_organizer.extensions import spec  # noqa: E402
 from project_organizer.utils.erreurs import Conflict  # noqa: E402
+
+
+class CorpsDeTest(ModeleEntree):
+    pseudo: str
+    mot_de_passe: str
 
 
 def _routes_de_test() -> Blueprint:
@@ -27,6 +35,16 @@ def _routes_de_test() -> Blueprint:
     @bp.get("/erreur-metier")
     def erreur_metier():
         raise Conflict("Les inscriptions sont closes.")
+
+    @bp.post("/validation")
+    @spec.validate(body=CorpsDeTest, resp=Response(HTTP_204=None))
+    def validation():
+        return "", 204
+
+    @bp.get("/reponse-non-conforme")
+    @spec.validate(resp=Response(HTTP_200=CorpsDeTest))
+    def reponse_non_conforme():
+        return jsonify({"pseudo": "sans mot de passe"}), 200
 
     @bp.get("/erreur-inattendue")
     def erreur_inattendue():
