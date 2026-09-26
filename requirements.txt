@@ -29,3 +29,7 @@ python-dotenv==1.2.2
 
 # Tests
 pytest==9.1.1
+
+# Validation des entrées et documentation d'API ( OpenAPI + Swagger UI )
+pydantic==2.13.5
+flask-pydantic-spec==0.8.7

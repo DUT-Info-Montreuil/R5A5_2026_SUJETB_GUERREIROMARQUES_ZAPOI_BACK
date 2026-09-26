@@ -1,26 +1,42 @@
 """
-Mise en forme de la réponse de diagnostic.
+Réponse de GET /health.
 
-Un DTO fait la frontière entre le Python (snake_case, objets du service) et le
-JSON échangé avec le front (camelCase, contrat d'API §1). C'est le seul endroit
-où cette traduction a lieu : ni le contrôleur ni le service ne la font.
+La traduction snake_case → camelCase est faite par ModeleApi : ni le
+contrôleur ni le service ne manipulent de clé en camelCase.
 """
 
+from typing import Literal
+
+from pydantic import Field
+
 from ..services.sante_service import EtatBase
+from .base import ModeleApi
 
 
-def sante_vers_dto(etat: EtatBase) -> dict:
-    return {
-        "statut": "ok",
-        "baseDeDonnees": {
-            "joignable": True,
-            "versionPostgres": etat.version_postgres,
-            "tables": etat.tables,
-            "schemaComplet": etat.schema_complet,
-        },
-    }
+class EtatBaseDto(ModeleApi):
+    joignable: bool
+    version_postgres: str | None = Field(None, examples=["16.4"])
+    tables: int | None = Field(None, description="Nombre de tables du schéma public", examples=[9])
+    schema_complet: bool | None = Field(None, description="Vrai si les 9 tables du schéma sont présentes")
 
 
-def sante_degradee_dto() -> dict:
+class EtatSanteDto(ModeleApi):
+    statut: Literal["ok", "degrade"]
+    base_de_donnees: EtatBaseDto
+
+
+def sante_vers_dto(etat: EtatBase) -> EtatSanteDto:
+    return EtatSanteDto(
+        statut="ok",
+        base_de_donnees=EtatBaseDto(
+            joignable=True,
+            version_postgres=etat.version_postgres,
+            tables=etat.tables,
+            schema_complet=etat.schema_complet,
+        ),
+    )
+
+
+def sante_degradee_dto() -> EtatSanteDto:
     """Aucun détail technique : il est dans les logs, jamais dans la réponse."""
-    return {"statut": "degrade", "baseDeDonnees": {"joignable": False}}
+    return EtatSanteDto(statut="degrade", base_de_donnees=EtatBaseDto(joignable=False))
