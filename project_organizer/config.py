@@ -52,8 +52,15 @@ class Config:
         if origine.strip()
     ]
 
-    JWT_ALGORITHME: str = "HS256"
     JWT_DUREE_MINUTES: int = int(_optionnel("JWT_EXPIRATION_MINUTES", "720"))
 
+    # Cookie « Secure » : envoyé uniquement en HTTPS. Désactivé en développement,
+    # où l'API tourne en HTTP ; à activer dès qu'il y a un certificat.
+    COOKIE_SECURE: bool = _optionnel("COOKIE_SECURE", "false").lower() == "true"
+
+    # Freine la force brute sur la connexion et l'inscription (cours, § limitation de débit).
+    LIMITE_CONNEXION: str = _optionnel("LIMITE_CONNEXION", "5 per minute")
+
+    DEBUG: bool = _optionnel("FLASK_DEBUG", "false").lower() == "true"
     LOG_LEVEL: str = _optionnel("LOG_LEVEL", "INFO").upper()
     PORT: int = int(_optionnel("PORT", "5000"))

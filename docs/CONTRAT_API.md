@@ -1,6 +1,6 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 3 — contrat figé.**
+**Version 4 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -20,7 +20,7 @@ pas une question en suspens mais une conséquence à respecter à l'implémentat
 | Nommage des champs | `camelCase`. Le front est en TypeScript, il n'a ainsi aucune conversion à faire ; le back convertit dans sa couche DTO. |
 | Dates | ISO 8601 avec fuseau, ex. `2026-09-17T14:30:00+02:00`. La base stocke en `TIMESTAMPTZ`. |
 | Identifiants | Entiers, nommés `idTournoi`, `idEquipe`… comme en base. |
-| Authentification | En-tête `Authorization: Bearer <jeton>`. |
+| Authentification | Cookie `HttpOnly` `jeton`, posé par l'API et joint par le navigateur (§2). |
 | Verbes | CRUD classique. Les changements d'état passent par `PATCH`, pas par des routes d'action. |
 | Encodage | UTF-8. |
 
@@ -100,38 +100,44 @@ autant qu'un test sur la route entière.
 
 ## 2. Authentification
 
-### `POST /api/auth/inscription`
+Le jeton voyage dans un **cookie `HttpOnly`** posé par l'API, et non dans le
+corps des réponses : le JavaScript de la page ne peut pas le lire, donc un
+script injecté ne peut pas l'emporter. Le navigateur le joint seul à chaque
+requête vers l'API ; le front appelle `fetch` avec `credentials: 'include'`.
 
-Public.
-
-```json
-// Entrée
-{ "pseudo": "alice", "email": "alice@iut.fr", "motDePasse": "…" }
-
-// 201
-{ "jeton": "eyJ…", "utilisateur": { "idUtilisateur": 1, "pseudo": "alice",
-  "email": "alice@iut.fr", "estAdministrateur": false } }
+```
+Set-Cookie: jeton=eyJ…; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200
 ```
 
-`409` si le pseudo ou l'e-mail est déjà pris.
+| Attribut | Pourquoi |
+|---|---|
+| `HttpOnly` | Illisible en JavaScript |
+| `SameSite=Lax` | Protection CSRF : le front (`localhost:5173`) et l'API (`localhost:5000`) sont le même site. **Aucune route n'écrit en GET** |
+| `Secure` | Activé par `COOKIE_SECURE=true`, dès que l'API est servie en HTTPS |
+| `Max-Age` | 12 heures (§2.1) |
 
-### `POST /api/auth/connexion`
+La documentation détaillée des routes (corps, réponses, erreurs) est générée
+depuis le code : `http://localhost:5000/apidoc/swagger`. Ce qui suit fixe les
+règles.
 
-Public. Entrée `{ "email", "motDePasse" }`, sortie identique à l'inscription.
+| Route | Accès | Réponse |
+|---|---|---|
+| `POST /api/auth/inscription` | Public, 5 essais par minute | `201 { utilisateur }` + cookie ; `409` pseudo ou e-mail pris ; `400` mot de passe de moins de 12 caractères |
+| `POST /api/auth/connexion` | Public, 5 essais par minute | `200 { utilisateur }` + cookie ; `401` ; `429` au-delà de la limite |
+| `GET /api/auth/moi` | Authentifié | `200 Utilisateur` : sert au front à restaurer la session au chargement |
+| `POST /api/auth/deconnexion` | Public | `204`, cookie effacé. Publique pour qu'une session expirée puisse être fermée |
 
-`401` en cas d'échec — **avec le même message que l'e-mail soit inconnu ou le
-mot de passe faux.** Distinguer les deux permettrait d'énumérer les comptes.
+`Utilisateur` : `{ idUtilisateur, pseudo, email, estAdministrateur }`.
 
-### `GET /api/auth/moi`
-
-Authentifié. Renvoie l'utilisateur du jeton. Sert au front à restaurer sa
-session au rechargement de la page.
+La connexion répond `401` **avec le même message que l'e-mail soit inconnu ou
+le mot de passe faux**, et prend le même temps dans les deux cas. Distinguer
+les deux permettrait d'énumérer les comptes.
 
 ### 2.1 Cycle de vie du jeton
 
 **Un seul jeton, valable 12 heures, sans jeton de rafraîchissement.** À
-expiration, le front reçoit `401`, efface le jeton et redirige vers l'écran de
-connexion.
+expiration, l'API répond `401` et efface le cookie ; le front redirige vers
+l'écran de connexion.
 
 Douze heures parce qu'un tournoi se joue sur une soirée : personne ne doit être
 déconnecté au milieu d'une demi-finale. Le rafraîchissement automatique suppose
@@ -141,14 +147,20 @@ beaucoup de mécanique pour un outil utilisé le temps d'une compétition.
 ### 2.2 Ce que le jeton contient — et ne contient pas
 
 ```json
-{ "sub": "1", "ver": 3, "iat": 1789650000, "exp": 1789693200 }
+{ "sub": "1", "ver": 3, "iat": 1789650000, "exp": 1789693200,
+  "nbf": 1789650000, "jti": "…", "type": "access", "fresh": false }
 ```
+
+`nbf`, `jti`, `type` et `fresh` sont ajoutés par flask-jwt-extended ; le projet
+ne s'en sert pas.
 
 | Claim | Rôle |
 |---|---|
 | `sub` | Identifiant de l'utilisateur |
 | `ver` | Valeur de `utilisateur.version_jeton` à l'émission (§2.3) |
 | `iat` / `exp` | Émission et expiration |
+
+Algorithme imposé côté serveur (`HS256`) : un jeton qui en annonce un autre est refusé.
 
 **Aucun droit n'est inscrit dans le jeton** — ni l'appartenance aux équipes, ni
 le statut d'administrateur.
@@ -418,8 +430,9 @@ sans casser l'existant.
 
 Les événements poussés font autant partie du contrat que les routes HTTP.
 
-**Connexion** : le client se connecte au WebSocket en présentant son jeton. Le
-serveur l'authentifie à la connexion **et** à chaque abonnement.
+**Connexion** : le navigateur joint le cookie `jeton` à la connexion au
+WebSocket (`withCredentials: true` côté client). Le serveur l'authentifie à la
+connexion **et** à chaque abonnement.
 
 **Salons**
 
@@ -502,6 +515,8 @@ mais ces règles-là restent du ressort de Flask.
 | 7 | Jeton | 12 h, un seul jeton, sans rafraîchissement |
 | 8 | Droits dans le jeton | Aucun — tout est relu en base à chaque requête (§2.2) |
 | 9 | Révocation | Colonne `utilisateur.version_jeton` comparée à chaque requête (§2.3) |
+| 10 | Transport du jeton (v4) | Cookie `HttpOnly` `SameSite=Lax`, plus d'en-tête `Authorization` (§2) |
+| 11 | Mots de passe (v4) | argon2, 12 caractères minimum, 5 essais par minute |
 
 Ce document est figé. Toute modification ultérieure est un changement de
 contrat : annoncée à l'autre, répercutée des deux côtés dans la même séance.

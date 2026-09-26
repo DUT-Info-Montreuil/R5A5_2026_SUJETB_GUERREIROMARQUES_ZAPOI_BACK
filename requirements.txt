@@ -15,6 +15,15 @@ simple-websocket==1.1.0
 SQLAlchemy==2.0.54
 pg8000==1.31.5
 
+# Validation des entrées et documentation d'API (OpenAPI + Swagger UI)
+pydantic==2.13.5
+flask-pydantic-spec==0.8.7
+
+# Authentification : jeton JWT en cookie, hachage des mots de passe, limitation de débit
+flask-jwt-extended==4.7.4
+argon2-cffi==25.1.0
+flask-limiter==4.1.1
+
 # Configuration
 python-dotenv==1.2.2
 

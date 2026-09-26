@@ -1,4 +1,4 @@
-# Tournament Organizer — API
+# Agôn Cup — API
 
 API de la plateforme de tournois de l'association étudiante (R5A5, sujet B).
 
@@ -33,7 +33,7 @@ Rien d'autre : PostgreSQL n'est **pas** à installer sur la machine.
 docker compose up -d
 ```
 
-PostgreSQL 16 démarre, crée la base `tournois` et joue automatiquement les
+PostgreSQL 16 démarre, crée la base `tournoi.py` et joue automatiquement les
 scripts du dossier `sql/` : le schéma, puis la suite de tests d'intégrité.
 
 Vérifier qu'elle tourne :
@@ -43,7 +43,7 @@ docker compose ps        # r5a5_db doit être « healthy »
 ```
 
 Une interface d'inspection (Adminer) est disponible sur `http://localhost:8080` :
-serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournois`.
+serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournoi.py`.
 
 ### 2. Environnement Python
 
