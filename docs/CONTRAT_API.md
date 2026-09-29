@@ -1,6 +1,7 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 4 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 5 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -208,6 +209,7 @@ supplémentaire.
 | `PATCH /api/tournois/{id}` | Administrateur | B-03, B-04, B-12 |
 | `GET /api/tournois/{id}/equipes` | Public | B-02 |
 | `GET /api/tournois/{id}/arbre` | Public | B-12, B-19 |
+| `GET /api/jeux` | Public | B-01 (liste proposée à la création) |
 
 ### `GET /api/tournois`
 
@@ -227,6 +229,46 @@ Paramètres : `recherche` (texte libre sur le nom), `statut` (filtre).
 ]
 ```
 
+### `GET /api/tournois/{id}` — l'objet `Tournoi` complet
+
+Les champs de la liste, plus les dates du cycle de vie, omises tant qu'elles
+ne sont pas atteintes. C'est aussi la réponse de `POST` et de `PATCH`, et la
+charge de l'événement `tournoi:maj`.
+
+```json
+{
+  "idTournoi": 1, "nomTournoi": "Coupe de printemps",
+  "jeu": { "idJeu": 1, "nomJeu": "League of Legends", "joueursParEquipe": 5 },
+  "statutTournoi": "EN_COURS", "nombreEquipes": 8, "nombreEquipesInscrites": 8,
+  "creeLe": "2026-09-17T14:30:00+02:00",
+  "inscriptionsClosesLe": "2026-09-20T18:00:00+02:00",
+  "demarreLe": "2026-09-24T18:00:00+02:00"
+}
+```
+
+### `POST /api/tournois`
+
+```json
+{ "nomTournoi": "Coupe de printemps", "idJeu": 1, "nombreEquipes": 8 }
+```
+
+`nombreEquipes` est facultatif : 8 par défaut (B-12), 2, 4 ou 16 acceptés. Le
+tournoi naît `INSCRIPTIONS_OUVERTES`. `201 Tournoi` ; `422` si le jeu n'existe
+pas.
+
+### `GET /api/tournois/{id}/equipes`
+
+```json
+[ { "idEquipe": 4, "nomEquipe": "Les Rouges", "statutEquipe": "EN_LICE", "nombreMembres": 5 } ]
+```
+
+Par ordre d'inscription. `motifSortie` n'apparaît que pour une équipe disqualifiée.
+
+### `GET /api/jeux`
+
+`[ { "idJeu": 1, "nomJeu": "League of Legends", "joueursParEquipe": 5 } ]`, par
+ordre alphabétique.
+
 ### `PATCH /api/tournois/{id}`
 
 Champs modifiables par l'administrateur : `nomTournoi`, `statutTournoi`.
@@ -244,6 +286,20 @@ garder en tête, puisque vous avez préféré `PATCH` aux routes d'action.
 Toute autre transition → `409`. La machine à états vit dans **une seule fonction
 de service**, appelée par cette route : c'est elle qui valide la transition
 avant d'agir, parce qu'une contrainte SQL ne voit pas la valeur précédente.
+
+Précisions (v5) :
+
+- **Clôture** : `409` s'il y a moins de 2 équipes inscrites. Les équipes sont
+  placées par tirage au sort, d'abord sur tous les côtés A du premier tour,
+  puis sur les côtés B : avec 5 équipes sur 8, une rencontre et trois
+  qualifications directes. Une rencontre du premier tour sans aucune équipe
+  reste `EN_ATTENTE` pour toujours.
+- **Lancement** : une équipe est incomplète quand elle a moins de membres que
+  `jeu.joueursParEquipe`. Elle passe `ELIMINEE` ; si elle avait un adversaire,
+  sa rencontre se termine en `FORFAIT` à son profit. `422` si moins de deux
+  équipes sont complètes.
+- **Fin** : `409` tant que la finale n'a pas de vainqueur.
+- Une requête sans aucun champ → `400`.
 
 ---
 
@@ -358,9 +414,19 @@ Effets, dans une seule transaction (B-14) : enregistrement du résultat,
 l'emplacement prévu, et passage de celle-ci en `JOUABLE` si ses deux équipes
 sont désormais connues.
 
+- `400` si `scoreA` et `scoreB` ne sont pas envoyés ensemble, ou avec un
+  autre type que `NORMAL`.
 - `403` si l'appelant n'est pas administrateur — **à tester** (B-13).
-- `409` si la rencontre n'est pas `JOUABLE`, ou est déjà `TERMINE`.
-- `422` si `idVainqueur` ne participe pas à cette rencontre.
+- `409` si la rencontre n'est pas `JOUABLE`, est déjà `TERMINE`, ou si le
+  tournoi n'est pas `EN_COURS`.
+- `422` si `idVainqueur` ne participe pas à cette rencontre ; si
+  `QUALIFICATION_DIRECTE` est demandée alors que les deux équipes sont
+  connues, ou l'inverse ; si le score du vainqueur n'est pas le plus élevé.
+
+Une rencontre devient `JOUABLE` quand chacun de ses deux côtés est connu :
+une équipe y est placée, ou aucune ne pourra jamais y arriver (côté vide au
+premier tour, ou alimenté par une rencontre elle-même vide). Réponse :
+`200 Rencontre`.
 
 ### Disqualification — `PATCH /api/equipes/{id}`
 
@@ -394,6 +460,11 @@ d'échange.
 Le front reconstruit l'arbre à partir de `idRencontreSuivante` et
 `emplacementSuivant`. Aucun calcul de position à faire : la base porte déjà les
 liens.
+
+Ordre : par tour, puis par position. Liste vide tant que les inscriptions sont
+ouvertes. Comme partout, un champ sans valeur est **omis** plutôt qu'envoyé à
+`null` : `equipeB` absente signifie « pas encore d'équipe ». `scoreA` et
+`scoreB` apparaissent quand ils ont été saisis.
 
 ---
 
@@ -441,13 +512,20 @@ connexion **et** à chaque abonnement.
 | `tournoi:{idTournoi}` | Tout le monde, même non connecté (B-19) |
 | `equipe:{idEquipe}` | Membres de l'équipe uniquement, selon la règle du §6 |
 
+**Abonnement client → serveur** (v5)
+
+| Événement | Charge | Accusé de réception |
+|---|---|---|
+| `tournoi:suivre` | `{ "idTournoi": 1 }` | `{ "ok": true }`, ou `false` si l'identifiant est invalide |
+| `tournoi:quitter` | `{ "idTournoi": 1 }` | idem |
+
 **Événements serveur → client**
 
 | Événement | Charge | Quand |
 |---|---|---|
 | `message:nouveau` | Objet `Message` complet | Un membre poste (B-16) |
-| `rencontre:maj` | Objet `Rencontre` complet | Un résultat est validé (B-14, B-19) |
-| `tournoi:maj` | Objet `Tournoi` complet | Changement d'état (B-03, B-04) |
+| `rencontre:maj` | Objet `Rencontre` complet | Un résultat est validé (B-14, B-19) : un événement par rencontre modifiée, la jouée et celle qui reçoit le vainqueur |
+| `tournoi:maj` | Objet `Tournoi` complet | Changement d'état ou de nom (B-03, B-04). Après une transition, l'arbre a pu changer : le client le relit |
 | `equipe:acces-revoque` | `{ "idEquipe": 4, "motif": "exclusion" \| "elimination" \| "disqualification" }` | Le destinataire perd l'accès (B-17, B-18) |
 
 **Les charges contiennent l'objet complet**, pas seulement un identifiant : le

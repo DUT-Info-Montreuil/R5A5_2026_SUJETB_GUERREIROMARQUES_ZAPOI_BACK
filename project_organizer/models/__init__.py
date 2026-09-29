@@ -9,9 +9,11 @@ n'appelle jamais Base.metadata.create_all(). Toute évolution du schéma se fait
 d'abord dans le script SQL, puis dans le modèle.
 """
 
+from .composer import Composer
 from .equipe import Equipe
 from .jeu import Jeu
+from .rencontre import Rencontre
 from .tournoi import Tournoi
 from .utilisateur import Utilisateur
 
-__all__ = ["Equipe", "Jeu", "Tournoi", "Utilisateur"]
+__all__ = ["Composer", "Equipe", "Jeu", "Rencontre", "Tournoi", "Utilisateur"]

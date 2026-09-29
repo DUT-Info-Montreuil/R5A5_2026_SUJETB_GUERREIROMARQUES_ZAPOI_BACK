@@ -149,8 +149,17 @@ L'approche est **mixte**, avec une règle pour trancher :
 > `repository/`.
 
 En pratique, l'ORM couvre le CRUD (créer une équipe, la renommer, lister des
-tournois) ; le SQL explicite couvre l'arbre du tournoi et les vérifications de
-droits d'accès.
+tournois) ; le SQL explicite couvre les vérifications de droits d'accès.
+
+**L'arbre du tournoi** n'a finalement pas besoin de SQL fin : un tournoi compte
+au plus 15 rencontres. Le service les charge toutes (une requête ORM), et
+`services/arbre.py` raisonne dessus en mémoire — placement des équipes,
+propagation du vainqueur, rencontres devenues jouables. Ce module ne touche ni
+à la base ni à HTTP : il se teste seul (`tests/test_arbre.py`).
+
+Toute écriture sur l'arbre commence par **verrouiller la ligne du tournoi**
+(`SELECT … FOR UPDATE`) : deux résultats saisis au même instant passent l'un
+après l'autre au lieu de propager deux vainqueurs dans la même place.
 
 **Le script SQL est la source de vérité du schéma.** Les modèles ORM décrivent
 des tables qui existent déjà : on n'appelle **jamais** `Base.metadata.create_all()`.
@@ -276,6 +285,10 @@ Le canal temps réel utilise Flask-SocketIO, qui fournit des **salons** (rooms).
 | `equipe:{idEquipe}` | Membres de l'équipe, selon la règle d'accès (B-16, B-18) |
 
 Les événements et leur contenu sont définis au §7 du contrat.
+
+Les services émettent par `sockets/diffusion.py`, **après** la validation de
+leur transaction : un événement émis puis annulé par un rollback annoncerait
+un état qui n'a jamais existé.
 
 **Une seule règle d'accès pour trois points d'entrée.** Le droit de lire
 l'espace d'échange d'une équipe est vérifié par **une seule fonction** de

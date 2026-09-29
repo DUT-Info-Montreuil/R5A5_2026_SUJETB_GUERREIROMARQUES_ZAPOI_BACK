@@ -82,8 +82,12 @@ def client(app):
 
 
 @pytest.fixture(autouse=True)
-def compteurs_de_debit_remis_a_zero():
-    """Chaque test repart avec ses 5 tentatives de connexion."""
+def compteurs_de_debit_remis_a_zero(app):
+    """Chaque test repart avec ses 5 tentatives de connexion.
+
+    Dépend de `app` : le limiteur n'a de stockage qu'une fois attaché à
+    l'application, y compris pour un test qui n'en a pas besoin lui-même.
+    """
     limiter.reset()
 
 

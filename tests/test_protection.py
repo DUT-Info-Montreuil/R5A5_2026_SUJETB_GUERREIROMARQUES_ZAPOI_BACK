@@ -13,6 +13,10 @@ ROUTES_PUBLIQUES = {
     ("POST", "/api/auth/connexion"),
     ("POST", "/api/auth/deconnexion"),
     ("GET", "/api/tournois"),
+    ("GET", "/api/tournois/<int:id_tournoi>"),
+    ("GET", "/api/tournois/<int:id_tournoi>/equipes"),
+    ("GET", "/api/tournois/<int:id_tournoi>/arbre"),
+    ("GET", "/api/jeux"),
 }
 
 

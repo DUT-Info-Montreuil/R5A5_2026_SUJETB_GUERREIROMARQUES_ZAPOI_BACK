@@ -13,6 +13,8 @@ from flask_cors import CORS
 
 from .config import Config
 from .controllers.auth_controller import auth_bp
+from .controllers.jeu_controller import jeu_bp
+from .controllers.rencontre_controller import rencontre_bp
 from .controllers.sante_controller import sante_bp
 from .controllers.tournoi_controller import tournoi_bp
 from .extensions import limiter, socketio, spec
@@ -60,6 +62,8 @@ def create_app(config: type[Config] = Config) -> Flask:
     app.register_blueprint(sante_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(tournoi_bp)
+    app.register_blueprint(rencontre_bp)
+    app.register_blueprint(jeu_bp)
 
     # Après les Blueprints : la documentation décrit les routes enregistrées.
     spec.register(app)
