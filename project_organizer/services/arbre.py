@@ -117,7 +117,8 @@ class Arbre:
         return self._par_id.get(rencontre.id_rencontre_suivante)
 
     def finale(self):
-        return next(r for r in self.rencontres if r.id_rencontre_suivante is None)
+        """None si l'arbre n'existe pas (tournoi jamais clos par l'API)."""
+        return next((r for r in self.rencontres if r.id_rencontre_suivante is None), None)
 
     def est_en_lice(self, id_equipe: int | None) -> bool:
         return id_equipe is not None and self.statuts_equipes.get(id_equipe) == "EN_LICE"

@@ -388,3 +388,16 @@ def test_un_abonnement_sans_identifiant_valide_est_refuse(app):
 
     assert spectateur.emit("tournoi:suivre", {"idTournoi": True}, callback=True) == {"ok": False}
     spectateur.disconnect()
+
+
+def test_terminer_un_tournoi_sans_arbre_donne_409_et_non_500(admin, id_jeu):
+    """Un tournoi passé EN_COURS directement en base (données de démonstration) n'a pas d'arbre."""
+    id_tournoi = _creer(admin, id_jeu)
+    with database.session() as session:
+        session.execute(
+            text("UPDATE tournoi SET statut_tournoi = 'EN_COURS', inscriptions_closes_le = now(), "
+                 "demarre_le = now() WHERE id_tournoi = :t"),
+            {"t": id_tournoi},
+        )
+
+    assert _statut(admin, id_tournoi, "TERMINE").status_code == 409

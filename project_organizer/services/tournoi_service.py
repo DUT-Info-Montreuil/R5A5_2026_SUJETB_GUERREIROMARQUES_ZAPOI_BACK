@@ -172,7 +172,7 @@ def _terminer(session: Session, tournoi: Tournoi) -> None:
     """EN_COURS → TERMINE : le vainqueur de la finale devient VAINQUEUR."""
     equipes_par_id = {equipe.id_equipe: equipe for equipe, _ in equipe_repository.du_tournoi(session, tournoi.id_tournoi)}
     finale = arbre_de(session, tournoi.id_tournoi, equipes_par_id).finale()
-    if finale.statut_rencontre != "TERMINE":
+    if finale is None or finale.statut_rencontre != "TERMINE":
         raise Conflict("La finale n'a pas encore de vainqueur.")
     equipes_par_id[finale.id_vainqueur].statut_equipe = "VAINQUEUR"
     tournoi.termine_le = func.now()
