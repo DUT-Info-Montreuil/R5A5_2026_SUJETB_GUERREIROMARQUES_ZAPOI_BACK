@@ -9,6 +9,8 @@ pour fonctionner.
 
 | Document | Contenu |
 |---|---|
+| [`API.md`](API.md) | Documentation de l'API : démarrage rapide, routes, temps réel, état d'avancement |
+| [`CLAUDE.md`](CLAUDE.md) | Règles de travail avec Claude (français, PR obligatoires, pas de secret…) et contexte du projet |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Organisation du code, règles entre les couches, conventions |
 | [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Contrat figé entre le front et le back |
 | [`docs/decisions/`](docs/decisions/) | Fiches de décision |
