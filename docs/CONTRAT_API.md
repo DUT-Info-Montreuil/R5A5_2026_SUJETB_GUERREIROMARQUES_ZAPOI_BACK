@@ -209,6 +209,7 @@ supplémentaire.
 | `PATCH /api/tournois/{id}` | Administrateur | B-03, B-04, B-12 |
 | `GET /api/tournois/{id}/equipes` | Public | B-02 |
 | `GET /api/tournois/{id}/arbre` | Public | B-12, B-19 |
+| `GET /api/jeux/{id}/roles` | Public | B-05 (postes proposés à la création d'une équipe) |
 | `GET /api/jeux` | Public | B-01 (liste proposée à la création) |
 
 ### `GET /api/tournois`
@@ -382,6 +383,18 @@ l'appelant.
 WebSocket active du joueur et lui émettre `equipe:acces-revoque`. Supprimer la
 ligne en base ne suffit pas — un socket déjà ouvert continuerait de recevoir les
 messages.
+
+### Précisions (v6)
+
+- **Réponses** — `Equipe` : `{ idEquipe, idTournoi, nomEquipe, statutEquipe, motifSortie?, membres: [ { idUtilisateur, pseudo, estCapitaine, role?: { idRole, libelleRole } } ] }`.
+  `Demande` : `{ idDemande, idEquipe, idUtilisateur, pseudo, statutDemande, creeLe, traiteLe? }`.
+  `role` est omis tant qu'aucun poste n'est attribué.
+- **Création** — `409` aussi si le tournoi est complet. `422` si `idRole` n'est pas un poste du jeu du tournoi. Un nom d'équipe est unique par tournoi, sans tenir compte de la casse.
+- **`POST /api/equipes/{id}/demandes`** — pas de corps. `409` si une demande est déjà en attente ou si les inscriptions sont closes ; `422` si le joueur a déjà une équipe dans ce tournoi, ou si l'équipe est complète.
+- **`GET /api/equipes/{id}/demandes`** — paramètre facultatif `statut` ; sans filtre, tout l'historique. `404` pour quiconque n'est pas capitaine de l'équipe, **administrateur compris**.
+- **`PATCH /api/demandes/{id}`** — `statutDemande` vaut `ACCEPTEE` ou `REFUSEE`. `404` si l'appelant n'est pas le capitaine de l'équipe. L'acceptation ajoute le joueur **sans poste**.
+- **`PATCH /api/equipes/{id}`** — `statutEquipe` n'accepte que `DISQUALIFIEE`. `403` si l'appelant n'est ni capitaine ni administrateur ; `400` si un champ est hors de la liste de son rôle. Disqualification : `409` si le tournoi n'est pas `EN_COURS` ou si l'équipe n'est plus en lice.
+- **`PATCH …/membres/{idUtilisateur}`** — `estCapitaine` n'accepte que `true` : le capitanat se transmet, il ne se retire pas. `403` pour tout appelant qui n'est pas capitaine de l'équipe, administrateur compris (B-10).
 
 ---
 
