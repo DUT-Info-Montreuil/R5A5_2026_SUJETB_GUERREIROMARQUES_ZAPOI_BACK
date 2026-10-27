@@ -387,7 +387,3 @@ des oublis. Les justifications vont dans les fiches de décision.
    (statut `VAINQUEUR`, la règle d'accès demande `EN_LICE`).
 8. **Serveur de production non testé ici** (Nginx, arrêt progressif,
    `proxy_read_timeout`) : voir la passation cloud.
-9. **Commentaires obsolètes** : `models/__init__.py` cite `sql/01_schema.sql`
-   (le fichier s'appelle `sql/schema_R5A5_sujetB.sql`) ; un commentaire du
-   schéma SQL (colonne `mot_de_passe_hash`) parle de `scrypt` alors que le code
-   utilise argon2.
