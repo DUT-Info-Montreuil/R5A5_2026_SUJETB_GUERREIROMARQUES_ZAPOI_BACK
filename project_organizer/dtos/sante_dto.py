@@ -14,6 +14,7 @@ from .base import ModeleApi
 
 
 class EtatBaseDto(ModeleApi):
+    """État de la base de données tel que le contrôle de santé le voit."""
     joignable: bool
     version_postgres: str | None = Field(None, examples=["16.4"])
     tables: int | None = Field(None, description="Nombre de tables du schéma public", examples=[9])
@@ -21,11 +22,13 @@ class EtatBaseDto(ModeleApi):
 
 
 class EtatSanteDto(ModeleApi):
+    """Réponse de /health : état général et état de la base."""
     statut: Literal["ok", "degrade"]
     base_de_donnees: EtatBaseDto
 
 
 def sante_vers_dto(etat: EtatBase) -> EtatSanteDto:
+    """Convertit le résultat du contrôle de santé en réponse d'API."""
     return EtatSanteDto(
         statut="ok",
         base_de_donnees=EtatBaseDto(

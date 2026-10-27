@@ -15,10 +15,13 @@ d'écrire la première route.
 | Autorisation des appels depuis le front | Flask-Cors | 6.0.5 |
 | Accès à la base | SQLAlchemy | 2.0.54 |
 | Pilote PostgreSQL | pg8000 | 1.31.5 |
+| Jeton JWT en cookie | flask-jwt-extended | 4.7.4 |
+| Hachage des mots de passe | argon2-cffi | 25.1.0 |
+| Limitation de débit | Flask-Limiter | 4.1.1 |
 | Configuration | python-dotenv | 1.2.2 |
 | Tests | pytest | 9.1.1 |
 | Base de données | PostgreSQL | 16 (Docker) |
-| Documentation d'API | Flasgger | *à venir — voir §7* |
+| Validation et documentation d'API | Pydantic + flask-pydantic-spec | 2.13.5 / 0.8.7 |
 
 Les versions sont **figées** dans `requirements.txt`. Pour en changer une, on
 modifie le fichier et on teste — jamais d'installation à la main sans la
@@ -37,27 +40,43 @@ R5A5_..._BACK/
 ├── sql/
 │   ├── schema_R5A5_sujetB.sql  Source de vérité du schéma
 │   └── tests_contraintes.sql   Tests d'intégrité, joués à la création du conteneur
-├── docs/
+├── scripts/
+│   └── donnees_demo.py         Comptes et tournois de démonstration (local seulement)
+├── docs/                       Contrat, architecture, décisions, TESTS_DROITS_ACCES.md
 ├── tests/
-│   ├── conftest.py
-│   └── test_socle.py           Vérifie que l'architecture tient ses promesses
+│   ├── conftest.py, outils_equipes.py   Fixtures et assistants
+│   ├── test_socle.py           Vérifie que l'architecture tient ses promesses
+│   ├── test_protection.py      Toute route non publique exige un jeton
+│   ├── test_authentification.py, test_tournois.py, test_arbre.py, test_cycle_tournoi.py
+│   ├── test_equipes.py, test_demandes.py, test_moi.py       Droits d'accès des équipes
+│   ├── test_messages.py        Espace d'échange : règle d'accès unique
+│   ├── test_temps_reel.py, test_temps_reel_limites.py       Socket : droits, plafonds, métriques
+│   ├── test_complements_securite.py   Cookie, journal des refus, proxy
+│   ├── test_donnees_demo.py
+│   └── test_documentation.py   Documentation générée et validation au format du contrat
 └── project_organizer/
     ├── __main__.py             Lancement : python -m project_organizer
     ├── app.py                  Fabrique de l'application
     ├── config.py               Lecture des variables d'environnement
-    ├── extensions.py           Instances partagées : socketio (et bientôt Flasgger)
+    ├── extensions.py           Instances partagées : socketio, spec (documentation)
     │
     ├── controllers/            HTTP ↔ services            (modèle : sante_controller.py)
-    ├── dtos/                   Schémas d'entrée/sortie    (modèle : sante_dto.py)
+    ├── dtos/                   Modèles Pydantic d'entrée/sortie (base.py, modèle : sante_dto.py)
     ├── services/               Règles métier              (modèle : sante_service.py)
     ├── repository/             Accès à la base            (modèle : sante_repository.py)
-    ├── models/                 Modèles ORM                (vide — une classe par table)
-    ├── sockets/                Événements temps réel      (connexion / déconnexion)
+    ├── models/                 Modèles ORM, une classe par table (types.py : ENUM PostgreSQL)
+    ├── sockets/                Événements temps réel : identité, abonnements, plafonds (__init__.py), diffusion après commit (diffusion.py)
     └── utils/
         ├── database.py         Moteur et sessions transactionnelles
         ├── journalisation.py   Logs sur la sortie standard, en JSON
         ├── requetes.py         Une ligne de log par requête HTTP
-        └── erreurs.py          Erreurs métier → format du contrat
+        ├── erreurs.py          Erreurs métier → format du contrat
+        ├── authentification.py Jeton en cookie, @publique, @administrateur_requis
+        ├── mots_de_passe.py    Hachage argon2
+        ├── metriques.py        Compteurs du temps réel (en mémoire, verrouillés)
+        ├── proxy.py            Adresse réelle du client derrière un reverse proxy (PROXIES_DE_CONFIANCE)
+        ├── cache_http.py       Politique de cache : no-cache + ETag sur les GET publics, no-store ailleurs
+        └── entetes_securite.py En-têtes de sécurité sur toutes les réponses
 ```
 
 Chaque dossier de couche contient un `__init__.py` qui rappelle ce qu'on y
@@ -138,8 +157,17 @@ L'approche est **mixte**, avec une règle pour trancher :
 > `repository/`.
 
 En pratique, l'ORM couvre le CRUD (créer une équipe, la renommer, lister des
-tournois) ; le SQL explicite couvre l'arbre du tournoi et les vérifications de
-droits d'accès.
+tournois) ; le SQL explicite couvre les vérifications de droits d'accès.
+
+**L'arbre du tournoi** n'a finalement pas besoin de SQL fin : un tournoi compte
+au plus 15 rencontres. Le service les charge toutes (une requête ORM), et
+`services/arbre.py` raisonne dessus en mémoire — placement des équipes,
+propagation du vainqueur, rencontres devenues jouables. Ce module ne touche ni
+à la base ni à HTTP : il se teste seul (`tests/test_arbre.py`).
+
+Toute écriture sur l'arbre commence par **verrouiller la ligne du tournoi**
+(`SELECT … FOR UPDATE`) : deux résultats saisis au même instant passent l'un
+après l'autre au lieu de propager deux vainqueurs dans la même place.
 
 **Le script SQL est la source de vérité du schéma.** Les modèles ORM décrivent
 des tables qui existent déjà : on n'appelle **jamais** `Base.metadata.create_all()`.
@@ -154,53 +182,104 @@ résultat, clôture des inscriptions) tiennent dans **une seule** transaction.
 
 ## 6. DTOs et nommage des champs
 
-Le contrat d'API impose le **camelCase** en JSON ; Python impose le
-**snake_case**. Le DTO fait la traduction, dans les deux sens, et c'est le
-**seul** endroit où elle a lieu :
+Un DTO est un modèle **Pydantic**. Il est la source unique de trois choses :
+la validation de ce qui entre, le typage du code, et la documentation d'API
+(§7). Modifier un DTO met les trois à jour ensemble.
+
+Le contrat impose le **camelCase** en JSON, Python le **snake_case**. Les
+classes de `dtos/base.py` font la traduction, et c'est le seul endroit où elle
+a lieu :
+
+| Classe | Pour | Particularité |
+|---|---|---|
+| `ModeleApi` | Réponses | Champs Python en snake_case, JSON en camelCase ; `vers_json()` pour répondre |
+| `ModeleEntree` | Corps de requête | Tout champ inconnu → 400 (contrat §1.4, règle 3) |
+| `ErreurDto` | Réponses d'erreur | Forme `{ erreur, detail }`, à déclarer pour chaque code d'erreur |
 
 ```python
 # dtos/equipe_dto.py
-from ..utils.erreurs import BadRequest
+from pydantic import Field
 
-def valider_creation_equipe(donnees: dict) -> tuple[str, int]:
-    """Entrée : vérifie la charge reçue, lève 400 si elle est invalide."""
-    nom = donnees.get("nomEquipe")
-    id_role = donnees.get("idRole")
-    if not isinstance(nom, str) or not nom.strip():
-        raise BadRequest("Le champ 'nomEquipe' est requis.")
-    if not isinstance(id_role, int):
-        raise BadRequest("Le champ 'idRole' est requis.")
-    return nom.strip(), id_role
+from .base import ModeleApi, ModeleEntree
 
-def equipe_vers_dto(equipe) -> dict:
-    """Sortie : objet Python → dictionnaire JSON en camelCase."""
-    return {
-        "idEquipe": equipe.id_equipe,
-        "nomEquipe": equipe.nom_equipe,
-        "statutEquipe": equipe.statut_equipe,
-    }
+
+class CreationEquipeDto(ModeleEntree):
+    nom_equipe: str = Field(min_length=1, max_length=50)   # reçu en "nomEquipe"
+    id_role: int                                           # reçu en "idRole"
+
+
+class EquipeDto(ModeleApi):
+    id_equipe: int
+    nom_equipe: str
+    statut_equipe: str
 ```
 
-Le contrôleur appelle la validation, passe les valeurs au service, et renvoie
-`jsonify(equipe_vers_dto(...))`. Ni le contrôleur ni le service ne manipulent
-de clé en camelCase.
+Le contrôleur ne valide rien à la main : si le corps ne correspond pas au
+modèle, la requête est rejetée en 400 avant d'atteindre la fonction, avec la
+liste des champs fautifs :
+
+```json
+{ "erreur": "Bad Request", "detail": { "champs": [ { "champ": "nomEquipe", "message": "Field required" } ] } }
+```
+
+Ni le contrôleur ni le service ne manipulent de clé en camelCase.
 
 ---
 
 ## 7. Documentation d'API
 
-Le contrat d'API (`docs/CONTRAT_API.md`) est la référence tant que la
-documentation interactive n'est pas en place.
+Elle est **générée depuis le code** par flask-pydantic-spec, à partir des DTOs
+déclarés sur chaque route. Il n'existe donc pas de description écrite à la
+main qui pourrait contredire le code.
 
-**Prochaine étape : Flasgger**, qui génère une interface Swagger à partir des
-routes Flask. Vérifié compatible avec la pile du projet (Flasgger 0.9.7.1 avec
-Flask 3.1.3). Il s'ajoutera dans `extensions.py`, et chaque route sera
-documentée par sa docstring, en suivant l'approche du cours.
+| Adresse | Contenu |
+|---|---|
+| http://localhost:5000/apidoc/swagger | Interface Swagger : routes, schémas, essai des requêtes |
+| http://localhost:5000/apidoc/openapi.json | Description OpenAPI brute |
 
-Deux règles à respecter en la mettant en place, pour rester fidèle au contrat :
+Une route documentée :
 
-- chaque route documente ses codes d'erreur (400, 401, 403, 404, 409, 422) ;
-- les schémas de réponse sont en camelCase, comme le JSON réellement renvoyé.
+```python
+from flask import request
+from flask_pydantic_spec import Response
+
+from ..dtos.base import ErreurDto
+from ..dtos.equipe_dto import CreationEquipeDto, EquipeDto
+from ..extensions import spec
+
+
+@equipes_bp.post("/api/tournois/<int:id_tournoi>/equipes")
+@spec.validate(
+    body=CreationEquipeDto,
+    resp=Response(HTTP_201=EquipeDto, HTTP_401=ErreurDto, HTTP_404=ErreurDto, HTTP_409=ErreurDto),
+    tags=["Équipes"],
+)
+def creer_equipe(id_tournoi: int):
+    """Inscrire une équipe à un tournoi (B-05).
+
+    La première ligne de la docstring devient le titre de la route dans
+    Swagger, la suite sa description.
+    """
+    donnees: CreationEquipeDto = request.context.body
+    equipe = equipe_service.creer(id_tournoi, donnees.nom_equipe, donnees.id_role)
+    return jsonify(equipe_vers_dto(equipe).vers_json()), 201
+```
+
+Règles :
+
+- **Chaque code d'erreur possible est déclaré** dans `Response(...)`, avec
+  `ErreurDto`. Une documentation limitée au cas qui marche oblige le front à
+  découvrir les erreurs en les provoquant.
+- **La réponse est vérifiée contre son DTO.** Une route qui renverrait autre
+  chose que ce que la documentation annonce répond 500 et laisse une ligne
+  d'erreur dans les logs : c'est un bug à corriger.
+- **Validation : 400, pas 422.** La bibliothèque renvoie 422 par défaut ; notre
+  contrat réserve 422 aux règles métier (§1.2). Le réglage est dans
+  `extensions.py`, la mise au format du contrat dans `utils/erreurs.py`.
+- **Une seule source par information.** Quand une route est implémentée, sa
+  description détaillée dans `CONTRAT_API.md` est remplacée par un renvoi vers
+  Swagger. Le contrat garde les règles transverses : format des erreurs, sens
+  des codes, authentification, découpage 403 / 404.
 
 ---
 
@@ -215,12 +294,23 @@ Le canal temps réel utilise Flask-SocketIO, qui fournit des **salons** (rooms).
 
 Les événements et leur contenu sont définis au §7 du contrat.
 
+Les services émettent par `sockets/diffusion.py`, **après** la validation de
+leur transaction : un événement émis puis annulé par un rollback annoncerait
+un état qui n'a jamais existé.
+
 **Une seule règle d'accès pour trois points d'entrée.** Le droit de lire
 l'espace d'échange d'une équipe est vérifié par **une seule fonction** de
 `services/`, appelée par la route de lecture, la route d'écriture, et le
 gestionnaire d'abonnement WebSocket. Trois implémentations séparées, c'est
 trois occasions de diverger — et ce sont précisément les points visés par les
 tests de sécurité.
+
+**La surveillance coupe aussi les jetons révoqués.** La boucle de surveillance
+(`sockets._surveiller`, toutes les `SOCKET_VERIFICATION_SECONDES`) ferme les
+connexions dont le jeton a expiré, **et** celles dont `ver` ne correspond plus à
+`version_jeton` (`fermer_les_connexions_revoquees`, une requête groupée pour
+toutes les connexions). Un joueur qui se déconnecte voit donc ses sockets
+fermés au plus 30 s plus tard ; les requêtes HTTP, elles, sont refusées tout de suite.
 
 **B-17 ne se règle pas qu'en base.** Exclure un joueur supprime sa ligne dans
 `composer`, mais un socket déjà ouvert continuerait de recevoir les messages.
@@ -231,21 +321,70 @@ socket du salon.
 
 ## 9. Authentification et droits
 
-> Pas encore implémentée dans le socle. Les règles ci-dessous découlent du
-> contrat d'API et s'appliqueront quand elle le sera.
+Tout est dans `utils/authentification.py`. Trois niveaux, chacun vérifie ce
+qu'il est seul à pouvoir vérifier :
 
-- Le jeton JWT ne contient que l'identité (`sub`) et la version (`ver`) —
-  **aucun droit**.
-- À chaque requête authentifiée, la ligne `utilisateur` est relue : on compare
-  `ver` à `version_jeton` (révocation) et on lit `est_administrateur`.
-- L'appartenance aux équipes et le rôle de capitaine sont vérifiés en base, par
-  le service concerné.
+| Niveau | Où | Vérifie |
+|---|---|---|
+| 1. Jeton | `before_request`, pour **toutes** les routes | Cookie présent, signature, expiration, `ver` = `version_jeton` en base |
+| 2. Rôle | `@administrateur_requis` sur la route | `est_administrateur`, relu en base |
+| 3. Ressource | Le **service** | Capitaine de *cette* équipe, membre de *cette* équipe… |
+
+**Refuser par défaut.** Une route sans décorateur exige un jeton. Une route
+publique le déclare avec `@publique`, posé juste sous `@bp.get` / `@bp.post` :
+
+```python
+@tournoi_bp.get("")
+@publique
+@spec.validate(...)
+def lister_tournois(): ...
+
+
+@tournoi_bp.post("")
+@administrateur_requis
+@spec.validate(...)
+def creer_tournoi():
+    createur = utilisateur_courant()   # l'utilisateur relu en base
+    ...
+```
+
+`tests/test_protection.py` appelle chaque route de l'API sans jeton et exige
+un `401`, sauf pour la liste `ROUTES_PUBLIQUES`. Ajouter une route publique,
+c'est donc l'ajouter à cette liste : un oubli de `@publique` se voit tout de
+suite, un oubli de protection aussi.
+
+**Le jeton** est un cookie `HttpOnly` `SameSite=Lax` (contrat §2), créé par
+`ouvrir_session()` et effacé par `fermer_session()`. Il ne contient que `sub`
+et `ver` (plus les champs techniques de flask-jwt-extended) : **aucun droit**.
+
+**Mots de passe** : `utils/mots_de_passe.py`, argon2. Quand l'e-mail est
+inconnu, un hachage leurre est vérifié quand même, pour que la réponse prenne
+le même temps.
+
+**Limitation de débit** : `@limiter.limit(Config.LIMITE_CONNEXION)` sur la
+connexion et l'inscription (5 par minute et par adresse par défaut).
+
+**En-têtes de sécurité** : `utils/entetes_securite.py` pose `nosniff`,
+`X-Frame-Options: DENY` et une `Content-Security-Policy` stricte sur toutes les
+réponses, sauf la page Swagger.
+
+**Cache HTTP** : `utils/cache_http.py` applique une politique unique. Les `GET`
+publics réussis reçoivent `Cache-Control: no-cache` et un `ETag` (le navigateur
+revalide, l'API répond `304` si rien n'a changé) ; tout le reste de `/api` est
+`no-store`. Jamais de `max-age` : un arbre en direct ne doit pas être périmé
+(contrat §1.5).
+
+**Déconnexion = révocation.** `POST /api/auth/deconnexion` lit le jeton s'il est
+valide et incrémente `version_jeton` (`auth_service.revoquer_les_sessions`) par
+un `UPDATE … WHERE version_jeton = :ver` atomique : rejouer un vieux jeton après
+une nouvelle connexion ne révoque pas la session récente. Le contrôleur ne
+touche pas à la base : il délègue au service, qui passe par le repository.
 
 Code HTTP selon la situation (§1.3 du contrat) :
 
 | Situation | Code |
 |---|---|
-| Pas de jeton, jeton expiré ou révoqué | 401 |
+| Pas de jeton, jeton expiré, falsifié ou révoqué | 401 |
 | Ressource publique, action interdite | 403 |
 | Ressource invisible pour l'appelant | 404 |
 
@@ -303,10 +442,10 @@ message générique.
 ## 12. Ajouter une fonctionnalité — liste de contrôle
 
 1. La route est-elle dans le **contrat d'API** ? Sinon, la décider à deux d'abord.
-2. `dtos/` : validation de l'entrée et conversion de la sortie en camelCase.
+2. `dtos/` : un modèle d'entrée (`ModeleEntree`) et un modèle de sortie (`ModeleApi`).
 3. `repository/` : lectures et écritures, ORM ou SQL selon la règle du §5.
 4. `services/` : règles du sujet, vérification des droits, transaction unique.
 5. `controllers/` : la route, qui ne fait qu'appeler le service.
 6. `sockets/` : l'événement temps réel éventuel, émis par le service.
 7. `tests/` : au moins un test qui prouve qu'un utilisateur non autorisé est refusé.
-8. Documenter la route (Flasgger, une fois en place) et la tester avec `python -m pytest`.
+8. `@spec.validate(...)` sur la route, avec **tous** ses codes d'erreur ; vérifier dans Swagger, puis `python -m pytest`.

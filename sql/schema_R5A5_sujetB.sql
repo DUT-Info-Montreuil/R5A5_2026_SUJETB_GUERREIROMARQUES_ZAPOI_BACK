@@ -385,28 +385,82 @@ COMMENT ON COLUMN message.id_auteur IS
 
 
 -- =============================================================================
---  10. Jeu d'essai minimal  (développement — à retirer en production)
+--  10. Catalogue de jeux  (données de référence)
 -- =============================================================================
+--
+--  Les jeux proposés à la création d'un tournoi, avec les postes réels de chacun
+--  (top / jungle / mid / ADC / support pour League of Legends ; tank / DPS / heal
+--  pour Overwatch 2, à six ; positions 1 à 5 pour Dota 2…). Une équipe est
+--  complète quand chaque poste a un joueur (règle de lancement). Un jeu en duel
+--  n'a qu'un poste. Les postes sont insérés dans l'ordre de la liste : c'est l'ordre
+--  où l'API les rend (par identifiant). Le script
+--  scripts/donnees_demo.py reprend les mêmes noms de postes : les modifier ici
+--  impose de les modifier là aussi (un test vérifie la cohérence).
 
 INSERT INTO jeu (nom_jeu, joueurs_par_equipe) VALUES
     ('League of Legends', 5),
-    ('Overwatch 2',       5);
+    ('Overwatch 2', 6),
+    ('Valorant', 5),
+    ('Counter-Strike 2', 5),
+    ('Dota 2', 5),
+    ('Rocket League', 3),
+    ('Fortnite', 4),
+    ('PUBG', 4),
+    ('Minecraft', 4),
+    ('EA Sports FC', 1),
+    ('Pokémon', 1),
+    ('Échecs', 1);
 
 INSERT INTO role_jeu (id_jeu, libelle_role)
 SELECT j.id_jeu, r.libelle
 FROM jeu j
 JOIN (VALUES
-    ('League of Legends', 'Top'),
-    ('League of Legends', 'Jungle'),
-    ('League of Legends', 'Mid'),
-    ('League of Legends', 'ADC'),
-    ('League of Legends', 'Support'),
-    ('Overwatch 2',       'Tank'),
-    ('Overwatch 2',       'Degats 1'),
-    ('Overwatch 2',       'Degats 2'),
-    ('Overwatch 2',       'Soutien 1'),
-    ('Overwatch 2',       'Soutien 2')
-) AS r(jeu, libelle) ON r.jeu = j.nom_jeu;
+    ('League of Legends', 'Top', 1),
+    ('League of Legends', 'Jungle', 2),
+    ('League of Legends', 'Mid', 3),
+    ('League of Legends', 'ADC', 4),
+    ('League of Legends', 'Support', 5),
+    ('Overwatch 2', 'Tank 1', 1),
+    ('Overwatch 2', 'Tank 2', 2),
+    ('Overwatch 2', 'DPS 1', 3),
+    ('Overwatch 2', 'DPS 2', 4),
+    ('Overwatch 2', 'Heal 1', 5),
+    ('Overwatch 2', 'Heal 2', 6),
+    ('Valorant', 'Duelliste', 1),
+    ('Valorant', 'Initiateur', 2),
+    ('Valorant', 'Contrôleur', 3),
+    ('Valorant', 'Sentinelle', 4),
+    ('Valorant', 'Flex', 5),
+    ('Counter-Strike 2', 'Entry', 1),
+    ('Counter-Strike 2', 'Support', 2),
+    ('Counter-Strike 2', 'Lurker', 3),
+    ('Counter-Strike 2', 'AWPer', 4),
+    ('Counter-Strike 2', 'IGL', 5),
+    ('Dota 2', 'Carry (pos. 1)', 1),
+    ('Dota 2', 'Mid (pos. 2)', 2),
+    ('Dota 2', 'Offlane (pos. 3)', 3),
+    ('Dota 2', 'Soutien (pos. 4)', 4),
+    ('Dota 2', 'Soutien complet (pos. 5)', 5),
+    ('Rocket League', 'Attaquant', 1),
+    ('Rocket League', 'Milieu', 2),
+    ('Rocket League', 'Défenseur', 3),
+    ('Fortnite', 'Meneur', 1),
+    ('Fortnite', 'Fragger', 2),
+    ('Fortnite', 'Constructeur', 3),
+    ('Fortnite', 'Soutien', 4),
+    ('PUBG', 'Meneur', 1),
+    ('PUBG', 'Fragger', 2),
+    ('PUBG', 'Sniper', 3),
+    ('PUBG', 'Soutien', 4),
+    ('Minecraft', 'Bâtisseur', 1),
+    ('Minecraft', 'Attaquant', 2),
+    ('Minecraft', 'Collecteur', 3),
+    ('Minecraft', 'Défenseur', 4),
+    ('EA Sports FC', 'Joueur', 1),
+    ('Pokémon', 'Dresseur', 1),
+    ('Échecs', 'Joueur', 1)
+) AS r(jeu, libelle, rang) ON r.jeu = j.nom_jeu
+ORDER BY j.nom_jeu, r.rang;
 
 
 -- =============================================================================

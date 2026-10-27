@@ -23,11 +23,13 @@ class BaseInjoignable(Exception):
 
 @dataclass(frozen=True)
 class EtatBase:
+    """Ce que la base répond au contrôle de santé : version de PostgreSQL et nombre de tables."""
     version_postgres: str
     tables: int
 
     @property
     def schema_complet(self) -> bool:
+        """Vrai si le schéma compte toutes les tables attendues."""
         return self.tables == NOMBRE_TABLES_ATTENDU
 
 

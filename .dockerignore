@@ -1,0 +1,14 @@
+# Ce qui ne doit jamais entrer dans l'image : secrets, caches, environnement local.
+.git
+.gitignore
+.env
+.venv
+**/__pycache__
+.pytest_cache
+tests
+docs
+sql
+*.md
+docker-compose*.yml
+Dockerfile
+.dockerignore

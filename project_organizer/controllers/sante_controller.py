@@ -12,11 +12,13 @@ from ..dtos.sante_dto import EtatSanteDto, sante_degradee_dto, sante_vers_dto
 from ..extensions import spec
 from ..services import sante_service
 from ..services.sante_service import BaseInjoignable
+from ..utils.authentification import publique
 
 sante_bp = Blueprint("sante", __name__)
 
 
 @sante_bp.get("/health")
+@publique
 @spec.validate(resp=Response(HTTP_200=EtatSanteDto, HTTP_503=EtatSanteDto), tags=["Diagnostic"])
 def health():
     """État de l'API et de sa base de données.
