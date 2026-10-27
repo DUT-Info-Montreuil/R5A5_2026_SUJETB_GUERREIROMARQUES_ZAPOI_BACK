@@ -16,10 +16,12 @@ MESSAGE_IDENTIFIANTS_INVALIDES = "E-mail ou mot de passe incorrect."
 
 
 def normaliser_email(email: str) -> str:
+    """Minuscules, sans espaces autour : « Kairo@IUT.fr » et « kairo@iut.fr » sont le même compte."""
     return email.strip().lower()
 
 
 def inscrire(pseudo: str, email: str, mot_de_passe: str) -> Utilisateur:
+    """Crée un compte joueur (mot de passe haché en argon2). 409 si le pseudo ou l'e-mail est déjà pris."""
     email = normaliser_email(email)
     with database.session() as session:
         if utilisateur_repository.pseudo_existe(session, pseudo):
@@ -30,6 +32,7 @@ def inscrire(pseudo: str, email: str, mot_de_passe: str) -> Utilisateur:
 
 
 def authentifier(email: str, mot_de_passe: str) -> Utilisateur:
+    """Vérifie e-mail et mot de passe. 401 avec le même message que l'e-mail soit inconnu ou le mot de passe faux."""
     with database.session() as session:
         utilisateur = utilisateur_repository.par_email(session, normaliser_email(email))
 
@@ -39,6 +42,27 @@ def authentifier(email: str, mot_de_passe: str) -> Utilisateur:
     if utilisateur is None or not mot_de_passe_valide:
         raise Unauthorized(MESSAGE_IDENTIFIANTS_INVALIDES)
     return utilisateur
+
+
+def revoquer_les_sessions(id_utilisateur: int, version_jeton: int) -> bool:
+    """Révoque TOUS les jetons du compte : déconnexion de chaque appareil (contrat §2.3).
+
+    On incrémente `version_jeton` : les jetons déjà émis portent l'ancienne valeur et sont refusés
+    à leur prochaine utilisation (401). `version_jeton` est celle du jeton qui demande la
+    déconnexion : s'il est déjà périmé, il n'y a rien à révoquer. Vrai si la révocation a eu lieu.
+    """
+    with database.session() as session:
+        return utilisateur_repository.incrementer_version_jeton(session, id_utilisateur, version_jeton)
+
+
+def jetons_revoques(couples: set[tuple[int, int]]) -> set[tuple[int, int]]:
+    """Parmi des couples (identifiant, version portée par le jeton), ceux qui ne sont plus valables :
+    jeton révoqué (version périmée) ou compte supprimé. Une seule requête pour tous."""
+    if not couples:
+        return set()
+    with database.session() as session:
+        courantes = utilisateur_repository.versions_des_jetons(session, sorted({id_ for id_, _ in couples}))
+    return {(id_, version) for id_, version in couples if courantes.get(id_) != version}
 
 
 def utilisateur_du_jeton(id_utilisateur: int, version_jeton: int) -> Utilisateur | None:
