@@ -45,7 +45,7 @@ Comptes et tournois de démonstration : `python scripts/donnees_demo.py`
 (**développement local uniquement**, jamais sur une base partagée : le script
 refuse de tourner si `COOKIE_SECURE=true`). Il crée un administrateur
 (`admin@agon-cup.fr`), 40 joueurs (`joueur01@demo.iut.fr` à `joueur40@demo.iut.fr`)
-et dix tournois (six à des étapes différentes, quatre sans équipe), puis affiche les mots de passe et
+et treize tournois (six à des étapes différentes, deux ouverts sans équipe, deux en solo, trois de plus pour le palmarès et le direct), puis affiche les mots de passe et
 quoi essayer avec quel compte. Il passe par les services réels : les données
 sont cohérentes (arbre, forfaits, propagation).
 
