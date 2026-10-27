@@ -9,6 +9,7 @@ import pytest
 
 from .outils_equipes import (
     ajouter_membre,
+    ajouter_membre_avec_poste,
     changer_statut,
     clore,
     creer_equipe,
@@ -195,8 +196,8 @@ def duel(fabrique_clients, jeu_a_postes):
     capitaine_alpha, capitaine_beta = fabrique_clients("cap_alpha"), fabrique_clients("cap_beta")
     id_alpha = equipe_creee(capitaine_alpha, id_tournoi, "Alpha", poste[0])
     id_beta = equipe_creee(capitaine_beta, id_tournoi, "Beta", poste[0])
-    ajouter_membre(capitaine_alpha, fabrique_clients("mem_alpha"), id_alpha)
-    ajouter_membre(capitaine_beta, fabrique_clients("mem_beta"), id_beta)
+    ajouter_membre_avec_poste(capitaine_alpha, fabrique_clients("mem_alpha"), id_alpha, poste[1])
+    ajouter_membre_avec_poste(capitaine_beta, fabrique_clients("mem_beta"), id_beta, poste[1])
     clore(admin, id_tournoi)
     assert changer_statut(admin, id_tournoi, "EN_COURS").status_code == 200
     return type("Duel", (), {

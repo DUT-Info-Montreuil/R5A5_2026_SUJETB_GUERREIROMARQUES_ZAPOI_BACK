@@ -27,6 +27,11 @@ def id_jeu(inscrire):
             text("INSERT INTO jeu (nom_jeu, joueurs_par_equipe) VALUES (:nom, 1) RETURNING id_jeu"),
             {"nom": JEU_DE_TEST},
         ).scalar_one()
+        # Une équipe n'est complète que si chaque joueur a un poste (B-08).
+        session.execute(
+            text("INSERT INTO role_jeu (id_jeu, libelle_role) VALUES (:jeu, 'test_Poste unique')"),
+            {"jeu": identifiant},
+        )
     yield identifiant
     with database.session() as session:
         session.execute(text("DELETE FROM tournoi WHERE id_jeu = :jeu"), {"jeu": identifiant})
@@ -65,15 +70,24 @@ def _creer(admin, id_jeu, nombre_equipes=4, nom="test_Coupe"):
     return reponse.get_json()["idTournoi"]
 
 
-def _inscrire_equipes(id_tournoi, completes: int, incompletes: int = 0) -> None:
-    """Équipes posées directement en base : les routes d'équipe sont un autre chantier."""
+def _inscrire_equipes(id_tournoi, completes: int, incompletes: int = 0, sans_poste: int = 0) -> None:
+    """Équipes posées directement en base, pour fabriquer vite un état précis.
+
+    completes     un joueur, avec son poste
+    incompletes   aucun joueur
+    sans_poste    un joueur, mais sans poste attribué : incomplète au sens de B-08
+    """
     with database.session() as session:
-        for numero in range(completes + incompletes):
+        id_role = session.execute(
+            text("SELECT id_role FROM role_jeu WHERE id_jeu = (SELECT id_jeu FROM tournoi WHERE id_tournoi = :t)"),
+            {"t": id_tournoi},
+        ).scalar_one()
+        for numero in range(completes + incompletes + sans_poste):
             id_equipe = session.execute(
                 text("INSERT INTO equipe (id_tournoi, nom_equipe) VALUES (:t, :n) RETURNING id_equipe"),
                 {"t": id_tournoi, "n": f"Equipe {numero + 1}"},
             ).scalar_one()
-            if numero >= completes:
+            if completes <= numero < completes + incompletes:
                 continue
             id_joueur = session.execute(
                 text("INSERT INTO utilisateur (pseudo, email, mot_de_passe_hash) "
@@ -81,9 +95,9 @@ def _inscrire_equipes(id_tournoi, completes: int, incompletes: int = 0) -> None:
                 {"p": f"test_joueur{id_equipe}", "e": f"test_joueur{id_equipe}@iut.fr"},
             ).scalar_one()
             session.execute(
-                text("INSERT INTO composer (id_equipe, id_tournoi, id_utilisateur, est_capitaine) "
-                     "VALUES (:e, :t, :u, TRUE)"),
-                {"e": id_equipe, "t": id_tournoi, "u": id_joueur},
+                text("INSERT INTO composer (id_equipe, id_tournoi, id_utilisateur, est_capitaine, id_role) "
+                     "VALUES (:e, :t, :u, TRUE, :r)"),
+                {"e": id_equipe, "t": id_tournoi, "u": id_joueur, "r": None if numero >= completes + incompletes else id_role},
             )
 
 
@@ -260,6 +274,31 @@ def test_au_lancement_une_equipe_incomplete_est_forfait(admin, id_jeu):
     )
     assert forfait["typeResultat"] == "FORFAIT"
     assert forfait["idVainqueur"] != equipes["Equipe 4"]["idEquipe"]
+
+
+def test_au_lancement_une_equipe_dont_un_joueur_n_a_pas_de_poste_est_forfait(admin, id_jeu):
+    """B-08 : cinq joueurs ne suffisent pas, chacun doit avoir un poste."""
+    id_tournoi = _creer(admin, id_jeu)
+    _inscrire_equipes(id_tournoi, completes=3, sans_poste=1)
+    _statut(admin, id_tournoi, "INSCRIPTIONS_CLOSES")
+
+    assert _statut(admin, id_tournoi, "EN_COURS").status_code == 200
+
+    equipes = {e["nomEquipe"]: e for e in admin.get(f"/api/tournois/{id_tournoi}/equipes").get_json()}
+    assert equipes["Equipe 4"]["nombreMembres"] == 1
+    assert equipes["Equipe 4"]["statutEquipe"] == "ELIMINEE"
+    assert all(equipes[f"Equipe {n}"]["statutEquipe"] == "EN_LICE" for n in (1, 2, 3))
+
+
+def test_on_ne_lance_pas_quand_les_postes_manquent_partout(admin, id_jeu):
+    id_tournoi = _creer(admin, id_jeu)
+    _inscrire_equipes(id_tournoi, completes=1, sans_poste=2)
+    _statut(admin, id_tournoi, "INSCRIPTIONS_CLOSES")
+
+    reponse = _statut(admin, id_tournoi, "EN_COURS")
+
+    assert reponse.status_code == 422
+    assert "poste" in reponse.get_json()["detail"]
 
 
 def test_on_ne_lance_pas_sans_deux_equipes_completes(admin, id_jeu):

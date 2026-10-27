@@ -40,6 +40,17 @@ def ajouter_membre(capitaine, joueur, id_equipe: int) -> None:
     assert acceptation.status_code == 200, acceptation.get_json()
 
 
+def attribuer_poste(capitaine, id_equipe: int, id_utilisateur: int, id_role: int) -> None:
+    reponse = capitaine.patch(f"/api/equipes/{id_equipe}/membres/{id_utilisateur}", json={"idRole": id_role})
+    assert reponse.status_code == 200, reponse.get_json()
+
+
+def ajouter_membre_avec_poste(capitaine, joueur, id_equipe: int, id_role: int) -> None:
+    """Un membre « prêt à jouer » : dans l'équipe, et avec son poste (B-08)."""
+    ajouter_membre(capitaine, joueur, id_equipe)
+    attribuer_poste(capitaine, id_equipe, joueur.id_utilisateur, id_role)
+
+
 def changer_statut(admin, id_tournoi: int, statut: str):
     return admin.patch(f"/api/tournois/{id_tournoi}", json={"statutTournoi": statut})
 
@@ -77,3 +88,46 @@ def monter_decor(fabrique_clients, jeu) -> SimpleNamespace:
         id_tournoi=id_tournoi,
         id_equipe=equipe_creee(capitaine, id_tournoi, "Les Rouges", jeu["postes"][0]),
     )
+
+def monter_duel(fabrique_clients, jeu) -> SimpleNamespace:
+    """Un tournoi à 2 équipes complètes, lancé : une finale jouable entre « Alpha » et « Beta ».
+
+    Chaque équipe a son capitaine (`capitaine_alpha`) et un membre (`membre_alpha`).
+    """
+    admin = fabrique_clients("admin", administrateur=True)
+    postes = jeu["postes"]
+    id_tournoi = creer_tournoi(admin, jeu["idJeu"], nombre_equipes=2)
+    capitaine_alpha, capitaine_beta = fabrique_clients("cap_alpha"), fabrique_clients("cap_beta")
+    membre_alpha, membre_beta = fabrique_clients("mem_alpha"), fabrique_clients("mem_beta")
+    id_alpha = equipe_creee(capitaine_alpha, id_tournoi, "Alpha", postes[0])
+    id_beta = equipe_creee(capitaine_beta, id_tournoi, "Beta", postes[0])
+    ajouter_membre_avec_poste(capitaine_alpha, membre_alpha, id_alpha, postes[1])
+    ajouter_membre_avec_poste(capitaine_beta, membre_beta, id_beta, postes[1])
+    clore(admin, id_tournoi)
+    assert changer_statut(admin, id_tournoi, "EN_COURS").status_code == 200
+    return SimpleNamespace(
+        admin=admin,
+        capitaine_alpha=capitaine_alpha, membre_alpha=membre_alpha, id_alpha=id_alpha,
+        capitaine_beta=capitaine_beta, membre_beta=membre_beta, id_beta=id_beta,
+        id_tournoi=id_tournoi,
+    )
+
+
+def finale(client, id_tournoi: int) -> dict:
+    return client.get(f"/api/tournois/{id_tournoi}/arbre").get_json()[0]
+
+
+def gagner_la_finale(admin, id_tournoi: int, id_vainqueur: int):
+    """L'administrateur désigne le vainqueur : le perdant est éliminé."""
+    return admin.patch(
+        f"/api/rencontres/{finale(admin, id_tournoi)['idRencontre']}",
+        json={"idVainqueur": id_vainqueur, "typeResultat": "NORMAL"},
+    )
+
+
+def poster(client, id_equipe: int, contenu: str = "Bonjour l'équipe"):
+    return client.post(f"/api/equipes/{id_equipe}/messages", json={"contenu": contenu})
+
+
+def lire_messages(client, id_equipe: int):
+    return client.get(f"/api/equipes/{id_equipe}/messages")
