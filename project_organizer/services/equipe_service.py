@@ -24,6 +24,7 @@ from ..sockets import diffusion
 from ..utils import database
 from ..utils.erreurs import BadRequest, Conflict, Forbidden, NotFound, UnprocessableEntity
 from . import arbre as arbre_du_tournoi
+from . import espace_service
 from .tournoi_service import arbre_de, tournoi_ou_404
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,12 @@ def detail(id_equipe: int) -> tuple[Equipe, MembresEquipe]:
     with database.session() as session:
         equipe = equipe_ou_404(session, id_equipe)
         return equipe, composer_repository.membres_de(session, id_equipe)
+
+
+def de_l_utilisateur(utilisateur: Utilisateur) -> list[tuple[Equipe, bool, Tournoi]]:
+    """Les équipes du joueur connecté, avec son rôle de capitaine et leur tournoi."""
+    with database.session() as session:
+        return equipe_repository.de_l_utilisateur(session, utilisateur.id_utilisateur)
 
 
 # --- Création ----------------------------------------------------------------
@@ -86,6 +93,7 @@ def modifier(id_equipe: int, appelant: Utilisateur, champs: dict) -> tuple[Equip
 
     rencontres_modifiees: list[Rencontre] = []
     noms: dict[int, str] = {}
+    revocations: list[espace_service.Revocation] = []
     with database.session() as session:
         equipe = equipe_ou_404(session, id_equipe)
         tournoi = tournoi_ou_404(session, equipe.id_tournoi, verrouiller=True)
@@ -110,6 +118,8 @@ def modifier(id_equipe: int, appelant: Utilisateur, champs: dict) -> tuple[Equip
 
         if "statut_equipe" in champs:
             rencontres_modifiees, noms = _disqualifier(session, tournoi, equipe, champs.get("motif_sortie"))
+            # B-18 : l'espace d'échange d'une équipe disqualifiée se ferme pour ses membres.
+            revocations.append(espace_service.revocation_de_l_equipe(session, id_equipe, "disqualification"))
         elif "motif_sortie" in champs:
             raise BadRequest("motifSortie s'envoie avec statutEquipe.")
 
@@ -118,6 +128,7 @@ def modifier(id_equipe: int, appelant: Utilisateur, champs: dict) -> tuple[Equip
 
     for rencontre in rencontres_modifiees:
         diffusion.rencontre_maj(equipe.id_tournoi, rencontre_vers_dto(rencontre, noms).vers_json())
+    espace_service.notifier(revocations)
     return equipe, membres
 
 
@@ -224,17 +235,21 @@ def retirer_membre(id_equipe: int, id_membre: int, appelant: Utilisateur) -> Non
             raise NotFound("Ce joueur n'est pas membre de cette équipe.")
         if membre.est_capitaine:
             raise UnprocessableEntity("Le capitaine doit passer la main avant de quitter l'équipe.")
+        revocation = espace_service.revocation_d_un_membre(session, id_equipe, id_membre, "exclusion")
         composer_repository.supprimer(session, membre)
 
     logger.info(
         "Joueur exclu" if not part_de_lui_meme else "Joueur parti",
         extra={"contexte": {"idEquipe": id_equipe, "idJoueur": id_membre, "idAppelant": appelant.id_utilisateur}},
     )
+    # B-17 : sans cet événement, un socket déjà ouvert continuerait de recevoir les messages.
+    espace_service.notifier([revocation])
 
 
 # --- Règles partagées (utilisées aussi par demande_service) ---------------------
 
 def equipe_ou_404(session: Session, id_equipe: int) -> Equipe:
+    """L'équipe d'identifiant donné ; 404 si elle n'existe pas."""
     equipe = equipe_repository.par_id(session, id_equipe)
     if equipe is None:
         raise NotFound("Équipe introuvable.")
@@ -255,6 +270,7 @@ def verifier_poste_du_jeu(session: Session, tournoi: Tournoi, id_role: int) -> N
 
 
 def est_capitaine(session: Session, id_equipe: int, id_utilisateur: int) -> bool:
+    """Vrai si ce joueur est le capitaine de cette équipe."""
     membre = composer_repository.membre(session, id_equipe, id_utilisateur)
     return membre is not None and membre.est_capitaine
 

@@ -1,3 +1,5 @@
+"""Modèle de la table composer : l'appartenance d'un joueur à une équipe (capitaine ou non, poste attribué)."""
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey

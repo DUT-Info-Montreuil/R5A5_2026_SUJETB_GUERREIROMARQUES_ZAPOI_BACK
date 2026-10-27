@@ -1,3 +1,5 @@
+"""Modèle de la table demande_adhesion : la demande d'un joueur pour rejoindre une équipe, et sa réponse."""
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey

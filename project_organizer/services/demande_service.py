@@ -11,7 +11,7 @@ import logging
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..models import DemandeAdhesion, Utilisateur
+from ..models import DemandeAdhesion, Equipe, Tournoi, Utilisateur
 from ..repository import composer_repository, demande_repository, equipe_repository, utilisateur_repository
 from ..utils import database
 from ..utils.erreurs import Conflict, NotFound, UnprocessableEntity
@@ -45,11 +45,18 @@ def creer(id_equipe: int, demandeur: Utilisateur) -> tuple[DemandeAdhesion, str]
     return demande, demandeur.pseudo
 
 
+def en_attente_de(utilisateur: Utilisateur) -> list[tuple[DemandeAdhesion, Equipe, Tournoi]]:
+    """Les demandes du joueur connecté qui attendent encore une réponse."""
+    with database.session() as session:
+        return demande_repository.en_attente_de(session, utilisateur.id_utilisateur)
+
+
 def lister(id_equipe: int, appelant: Utilisateur, statut: str | None) -> list[tuple[DemandeAdhesion, str]]:
     """Les demandes de l'équipe, pour son capitaine seulement."""
     with database.session() as session:
         equipe_ou_404(session, id_equipe)
         if not est_capitaine(session, id_equipe, appelant.id_utilisateur):
+            _journaliser_refus("lister", appelant, id_equipe)
             raise NotFound(MESSAGE_INTROUVABLE)
         return demande_repository.de_l_equipe(session, id_equipe, statut)
 
@@ -63,6 +70,7 @@ def traiter(id_demande: int, capitaine: Utilisateur, statut: str) -> tuple[Deman
         equipe = equipe_repository.par_id(session, demande.id_equipe)
         # Une demande dont on n'est pas le capitaine n'existe pas : 404, pas 403.
         if not est_capitaine(session, equipe.id_equipe, capitaine.id_utilisateur):
+            _journaliser_refus("traiter", capitaine, equipe.id_equipe)
             raise NotFound(MESSAGE_INTROUVABLE)
 
         tournoi = tournoi_ou_404(session, equipe.id_tournoi, verrouiller=True)
@@ -93,6 +101,14 @@ def traiter(id_demande: int, capitaine: Utilisateur, statut: str) -> tuple[Deman
         extra={"contexte": {"idDemande": id_demande, "idEquipe": equipe.id_equipe, "statut": statut}},
     )
     return demande, demandeur.pseudo
+
+
+def _journaliser_refus(action: str, utilisateur: Utilisateur, id_equipe: int) -> None:
+    """Les demandes sont invisibles de qui n'en est pas destinataire (404) : le refus est tracé quand même."""
+    logger.warning(
+        "Accès refusé aux demandes d'adhésion",
+        extra={"contexte": {"action": action, "idEquipe": id_equipe, "idUtilisateur": utilisateur.id_utilisateur}},
+    )
 
 
 def _exiger_une_place(session: Session, id_equipe: int, joueurs_par_equipe: int) -> None:

@@ -17,6 +17,7 @@ from ..sockets import diffusion
 from ..utils import database
 from ..utils.erreurs import BadRequest, Conflict, NotFound, UnprocessableEntity
 from . import arbre as arbre_du_tournoi
+from . import espace_service
 from .tournoi_service import arbre_de, tournoi_ou_404
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,8 @@ def arbre(id_tournoi: int) -> tuple[list[Rencontre], dict[int, str]]:
 def saisir_resultat(
     id_rencontre: int, id_vainqueur: int, type_resultat: str, score_a: int | None, score_b: int | None,
 ) -> tuple[Rencontre, dict[int, str]]:
+    """Enregistre le résultat d'une rencontre, élimine le perdant et fait avancer le vainqueur, dans une seule transaction (B-13, B-14, B-15). Le tournoi est verrouillé : deux saisies simultanées passent l'une après l'autre.
+    """
     _verifier_scores(type_resultat, score_a, score_b)
 
     with database.session() as session:
@@ -56,8 +59,11 @@ def saisir_resultat(
         perdant = arbre.enregistrer_resultat(
             rencontre, id_vainqueur, type_resultat, func.now(), score_a, score_b
         )
+        revocations: list[espace_service.Revocation] = []
         if perdant is not None:
             equipes_par_id[perdant].statut_equipe = "ELIMINEE"
+            # B-18 : l'espace d'échange d'une équipe éliminée se ferme pour ses membres.
+            revocations.append(espace_service.revocation_de_l_equipe(session, perdant, "elimination"))
         arbre.actualiser_statuts()
         session.flush()
 
@@ -70,6 +76,7 @@ def saisir_resultat(
     )
     for modifiee in modifiees:
         diffusion.rencontre_maj(id_tournoi, rencontre_vers_dto(modifiee, noms).vers_json())
+    espace_service.notifier(revocations)
     return rencontre, noms
 
 

@@ -13,6 +13,7 @@ SCORE_MAX = 999
 
 
 class EquipeDeRencontreDto(ModeleApi):
+    """Une équipe telle qu'elle apparaît dans une rencontre : identifiant et nom."""
     id_equipe: int
     nom_equipe: str
 
@@ -36,6 +37,7 @@ class RencontreDto(ModeleApi):
 
 
 class ArbreDto(RootModel[list[RencontreDto]]):
+    """L'arbre d'un tournoi : ses rencontres, par tour puis par position."""
     pass
 
 
@@ -52,6 +54,7 @@ class ResultatRencontreDto(ModeleEntree):
 
 
 def rencontre_vers_dto(rencontre: Rencontre, noms_equipes: dict[int, str]) -> RencontreDto:
+    """Convertit une rencontre en réponse d'API ; `noms_equipes` donne le nom de chaque équipe engagée."""
     def equipe(id_equipe: int | None) -> EquipeDeRencontreDto | None:
         if id_equipe is None:
             return None

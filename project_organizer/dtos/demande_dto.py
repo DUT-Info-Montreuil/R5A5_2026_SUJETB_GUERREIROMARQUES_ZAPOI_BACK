@@ -24,6 +24,7 @@ class TraitementDemandeDto(ModeleEntree):
 
 
 class DemandeDto(ModeleApi):
+    """Une demande d'adhésion vue par le capitaine : qui demande, quand, et où elle en est."""
     id_demande: int
     id_equipe: int
     id_utilisateur: int
@@ -34,10 +35,12 @@ class DemandeDto(ModeleApi):
 
 
 class ListeDemandesDto(RootModel[list[DemandeDto]]):
+    """Liste de demandes d'adhésion."""
     pass
 
 
 def demande_vers_dto(demande: DemandeAdhesion, pseudo: str) -> DemandeDto:
+    """Convertit une demande en réponse d'API, avec le pseudo du demandeur."""
     return DemandeDto(
         id_demande=demande.id_demande,
         id_equipe=demande.id_equipe,

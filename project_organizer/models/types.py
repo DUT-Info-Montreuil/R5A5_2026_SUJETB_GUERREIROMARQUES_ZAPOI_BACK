@@ -20,4 +20,5 @@ class EnumPostgres(TypeDecorator):
         super().__init__(*valeurs, name=nom, create_type=False)
 
     def bind_expression(self, valeur_liee):
+        """Convertit la valeur envoyée en ENUM PostgreSQL (CAST) avant de l'écrire ou de la comparer."""
         return cast(valeur_liee, self.impl)

@@ -58,6 +58,7 @@ def initialiser(database_url: str) -> Engine:
 
 
 def moteur() -> Engine:
+    """Le moteur de connexion ; erreur explicite s'il n'a pas été initialisé."""
     if _engine is None:
         raise RuntimeError(
             "La base n'est pas initialisée. "

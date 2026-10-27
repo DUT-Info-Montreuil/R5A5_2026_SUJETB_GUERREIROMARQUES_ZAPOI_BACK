@@ -17,6 +17,7 @@ _EMPREINTE_LEURRE = _hacheur.hash("aucun-compte-ne-porte-ce-mot-de-passe")
 
 
 def hacher(mot_de_passe: str) -> str:
+    """Empreinte argon2id du mot de passe, sel aléatoire inclus."""
     return _hacheur.hash(mot_de_passe)
 
 

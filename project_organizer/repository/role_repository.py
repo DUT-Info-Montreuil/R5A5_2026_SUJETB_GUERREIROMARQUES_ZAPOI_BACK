@@ -7,6 +7,7 @@ from ..models import RoleJeu
 
 
 def par_id(session: Session, id_role: int) -> RoleJeu | None:
+    """Le poste de jeu d'identifiant donné, ou None."""
     return session.get(RoleJeu, id_role)
 
 

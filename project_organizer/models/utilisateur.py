@@ -1,3 +1,5 @@
+"""Modèle de la table utilisateur : un compte, joueur ou administrateur."""
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String
@@ -7,6 +9,7 @@ from ..utils.database import Base
 
 
 class Utilisateur(Base):
+    """Table utilisateur : un compte, joueur ou administrateur. `version_jeton` permet de révoquer ses sessions."""
     __tablename__ = "utilisateur"
 
     id_utilisateur: Mapped[int] = mapped_column(BigInteger, primary_key=True)

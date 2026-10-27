@@ -38,6 +38,7 @@ class PlaceArbre:
 
 
 def nombre_de_tours(nombre_equipes: int) -> int:
+    """Nombre de tours d'un arbre de `nombre_equipes` places (une puissance de 2) : 8 équipes, 3 tours."""
     return int(log2(nombre_equipes))
 
 
@@ -82,14 +83,17 @@ def places(nombre_equipes: int, equipes: Sequence[int]) -> list[PlaceArbre]:
 
 
 def equipe_de(rencontre, emplacement: str) -> int | None:
+    """L'équipe qui occupe le côté A ou B de la rencontre, ou None si ce côté est vide."""
     return rencontre.id_equipe_a if emplacement == EMPLACEMENT_A else rencontre.id_equipe_b
 
 
 def adversaire(rencontre, id_equipe: int) -> int | None:
+    """L'autre équipe de la rencontre, ou None s'il n'y en a pas."""
     return rencontre.id_equipe_b if id_equipe == rencontre.id_equipe_a else rencontre.id_equipe_a
 
 
 def placer(rencontre, emplacement: str, id_equipe: int) -> None:
+    """Place une équipe sur le côté A ou B de la rencontre."""
     if emplacement == EMPLACEMENT_A:
         rencontre.id_equipe_a = id_equipe
     else:
@@ -114,6 +118,7 @@ class Arbre:
         }
 
     def suivante(self, rencontre):
+        """La rencontre alimentée par le vainqueur de celle-ci, ou None pour la finale."""
         return self._par_id.get(rencontre.id_rencontre_suivante)
 
     def finale(self):
@@ -121,9 +126,12 @@ class Arbre:
         return next((r for r in self.rencontres if r.id_rencontre_suivante is None), None)
 
     def est_en_lice(self, id_equipe: int | None) -> bool:
+        """Vrai si l'équipe existe et n'est ni éliminée, ni disqualifiée, ni sortie par forfait."""
         return id_equipe is not None and self.statuts_equipes.get(id_equipe) == "EN_LICE"
 
     def emplacement_mort(self, rencontre, emplacement: str) -> bool:
+        """Vrai si ce côté ne recevra jamais d'équipe : vide, tenu par une équipe sortie, ou alimenté par une rencontre elle-même morte.
+        """
         id_equipe = equipe_de(rencontre, emplacement)
         if id_equipe is not None:
             # Une équipe sortie (forfait au lancement) ne jouera pas ce match.
@@ -132,6 +140,7 @@ class Arbre:
         return source is None or self.est_morte(source)
 
     def est_morte(self, rencontre) -> bool:
+        """Vrai si la rencontre n'est pas terminée et que ses deux côtés sont morts : aucun vainqueur n'en sortira."""
         if rencontre.statut_rencontre == "TERMINE":
             return False
         return self.emplacement_mort(rencontre, EMPLACEMENT_A) and self.emplacement_mort(rencontre, EMPLACEMENT_B)

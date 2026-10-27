@@ -1,3 +1,5 @@
+"""Modèle de la table rencontre : un match de l'arbre, ses deux équipes, son résultat et la rencontre qui suit."""
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, String

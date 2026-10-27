@@ -19,10 +19,12 @@ def membres_de(session: Session, id_equipe: int) -> list[tuple[Composer, str, st
 
 
 def membre(session: Session, id_equipe: int, id_utilisateur: int) -> Composer | None:
+    """La ligne d'appartenance de ce joueur à cette équipe, ou None s'il n'en fait pas partie."""
     return session.get(Composer, (id_equipe, id_utilisateur))
 
 
 def capitaine_de(session: Session, id_equipe: int) -> Composer | None:
+    """Le capitaine de l'équipe, ou None si elle n'en a pas."""
     requete = select(Composer).where(Composer.id_equipe == id_equipe, Composer.est_capitaine.is_(True))
     return session.scalars(requete).first()
 
@@ -36,6 +38,7 @@ def equipe_du_joueur(session: Session, id_tournoi: int, id_utilisateur: int) -> 
 
 
 def compter(session: Session, id_equipe: int) -> int:
+    """Nombre de membres de l'équipe."""
     return session.scalar(select(func.count()).select_from(Composer).where(Composer.id_equipe == id_equipe)) or 0
 
 
@@ -53,6 +56,7 @@ def ajouter(
     session: Session, id_equipe: int, id_tournoi: int, id_utilisateur: int,
     id_role: int | None, est_capitaine: bool,
 ) -> Composer:
+    """Fait entrer un joueur dans l'équipe, avec son poste (éventuel) et son rôle de capitaine."""
     composer = Composer(
         id_equipe=id_equipe,
         id_tournoi=id_tournoi,
@@ -66,5 +70,16 @@ def ajouter(
 
 
 def supprimer(session: Session, composer: Composer) -> None:
+    """Retire un membre de son équipe."""
     session.delete(composer)
     session.flush()
+
+
+def postes_attribues(session: Session, id_tournoi: int) -> dict[int, int]:
+    """Pour chaque équipe du tournoi, le nombre de membres qui ont un poste (B-08)."""
+    requete = (
+        select(Composer.id_equipe, func.count())
+        .where(Composer.id_tournoi == id_tournoi, Composer.id_role.is_not(None))
+        .group_by(Composer.id_equipe)
+    )
+    return {id_equipe: nombre for id_equipe, nombre in session.execute(requete).all()}

@@ -32,6 +32,7 @@ class FormateurJson(logging.Formatter):
     """Sérialise chaque enregistrement en une ligne JSON."""
 
     def format(self, record: logging.LogRecord) -> str:
+        """Une ligne de JSON par événement : horodatage, niveau, logger, message, contexte et exception éventuelle."""
         charge = {
             "horodatage": datetime.now(timezone.utc).isoformat(),
             "niveau": record.levelname,

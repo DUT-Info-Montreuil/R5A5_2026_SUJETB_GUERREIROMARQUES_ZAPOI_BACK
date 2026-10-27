@@ -72,15 +72,18 @@ class ModificationMembreDto(ModeleEntree):
 # --- Sorties ------------------------------------------------------------------
 
 class RoleJeuDto(ModeleApi):
+    """Un poste proposé par un jeu (Top, Tank, Duelliste…)."""
     id_role: int
     libelle_role: str
 
 
 class ListeRolesDto(RootModel[list[RoleJeuDto]]):
+    """Les postes d'un jeu."""
     pass
 
 
 class MembreDto(ModeleApi):
+    """Un membre d'équipe : pseudo, capitaine ou non, et son poste s'il en a un."""
     id_utilisateur: int
     pseudo: str
     est_capitaine: bool
@@ -99,10 +102,12 @@ class EquipeDto(ModeleApi):
 
 
 def role_vers_dto(role: RoleJeu) -> RoleJeuDto:
+    """Convertit un poste de jeu en réponse d'API."""
     return RoleJeuDto(id_role=role.id_role, libelle_role=role.libelle_role)
 
 
 def equipe_vers_dto(equipe: Equipe, membres: list[tuple[Composer, str, str | None]]) -> EquipeDto:
+    """Convertit une équipe et ses membres (liaison, pseudo, poste) en réponse d'API."""
     return EquipeDto(
         id_equipe=equipe.id_equipe,
         id_tournoi=equipe.id_tournoi,

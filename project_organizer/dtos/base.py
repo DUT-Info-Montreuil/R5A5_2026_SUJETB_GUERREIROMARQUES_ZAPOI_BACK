@@ -18,6 +18,7 @@ class ModeleApi(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     def vers_json(self) -> dict:
+        """Le JSON de la réponse : noms en camelCase, champs sans valeur omis (jamais de null, contrat §1)."""
         # exclude_none : un champ sans valeur est omis plutôt qu'envoyé à null.
         # mode="json" : dates en ISO 8601 (contrat §1) ; sans lui, Flask les
         # écrirait au format « Thu, 17 Sep 2026 12:30:00 GMT ».

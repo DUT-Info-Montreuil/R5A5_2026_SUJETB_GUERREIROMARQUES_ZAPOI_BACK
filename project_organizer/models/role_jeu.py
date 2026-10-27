@@ -1,3 +1,5 @@
+"""Modèle de la table role_jeu : un poste proposé par un jeu."""
+
 from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 

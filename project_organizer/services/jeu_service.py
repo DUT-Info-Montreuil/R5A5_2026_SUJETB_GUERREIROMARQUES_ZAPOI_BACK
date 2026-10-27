@@ -7,6 +7,7 @@ from ..utils.erreurs import NotFound
 
 
 def postes_du_jeu(id_jeu: int) -> list[RoleJeu]:
+    """Les postes d'un jeu ; 404 si le jeu n'existe pas."""
     with database.session() as session:
         if jeu_repository.par_id(session, id_jeu) is None:
             raise NotFound("Jeu introuvable.")
