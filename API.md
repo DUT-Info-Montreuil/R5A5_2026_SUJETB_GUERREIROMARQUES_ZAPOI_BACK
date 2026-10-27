@@ -229,10 +229,10 @@ le vainqueur).
 | Route | Accès | Exigence | Codes | |
 |---|---|---|---|---|
 | `GET /api/jeux/{id}/roles` | Public | B-05 | 200, 404 | ✅ |
-| `POST /api/tournois/{id}/equipes` | Joueur connecté | B-05, B-07 | 201, 400, 401, 404, 409, 422 | ✅ |
+| `POST /api/tournois/{id}/equipes` | Joueur connecté (pas un administrateur : 403) | B-05, B-07 | 201, 400, 401, 403, 404, 409, 422 | ✅ |
 | `GET /api/equipes/{id}` | Public | B-02 | 200, 404 | ✅ |
 | `PATCH /api/equipes/{id}` | Capitaine (`nomEquipe`) · Administrateur (`statutEquipe`, `motifSortie`) | B-09, B-10, B-15 | 200, 400, 401, 403, 404, 409 | ✅ |
-| `POST /api/equipes/{id}/demandes` | Joueur connecté | B-06 | 201, 401, 404, 409, 422 | ✅ |
+| `POST /api/equipes/{id}/demandes` | Joueur connecté (pas un administrateur : 403) | B-06 | 201, 401, 403, 404, 409, 422 | ✅ |
 | `GET /api/equipes/{id}/demandes` | Capitaine seulement (404 pour tout autre, administrateur compris) | B-06 | 200, 400, 401, 404 | ✅ |
 | `PATCH /api/demandes/{id}` | Capitaine | B-06 | 200, 400, 401, 404, 409, 422 | ✅ |
 | `PATCH /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine | B-08, B-09 | 200, 400, 401, 403, 404, 409, 422 | ✅ |

@@ -15,7 +15,7 @@ from ..models import DemandeAdhesion, Equipe, Tournoi, Utilisateur
 from ..repository import composer_repository, demande_repository, equipe_repository, utilisateur_repository
 from ..utils import database
 from ..utils.erreurs import Conflict, NotFound, UnprocessableEntity
-from .equipe_service import equipe_ou_404, est_capitaine, exiger_inscriptions_ouvertes
+from .equipe_service import equipe_ou_404, est_capitaine, exiger_inscriptions_ouvertes, exiger_un_joueur
 from .tournoi_service import tournoi_ou_404
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ MESSAGE_INTROUVABLE = "Ressource introuvable."
 
 def creer(id_equipe: int, demandeur: Utilisateur) -> tuple[DemandeAdhesion, str]:
     """B-06 : demander à rejoindre une équipe."""
+    exiger_un_joueur(demandeur)
     with database.session() as session:
         equipe = equipe_ou_404(session, id_equipe)
         tournoi = tournoi_ou_404(session, equipe.id_tournoi, verrouiller=True)

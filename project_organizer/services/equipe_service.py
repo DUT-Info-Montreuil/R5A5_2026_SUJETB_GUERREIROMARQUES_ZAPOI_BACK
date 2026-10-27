@@ -57,6 +57,7 @@ def de_l_utilisateur(utilisateur: Utilisateur) -> list[tuple[Equipe, bool, Tourn
 
 def creer(id_tournoi: int, createur: Utilisateur, nom_equipe: str, id_role: int) -> tuple[Equipe, MembresEquipe]:
     """B-05 : le créateur devient capitaine et premier membre, dans la même transaction."""
+    exiger_un_joueur(createur)
     with database.session() as session:
         tournoi = tournoi_ou_404(session, id_tournoi, verrouiller=True)
         exiger_inscriptions_ouvertes(tournoi)
@@ -280,6 +281,20 @@ def equipe_ou_404(session: Session, id_equipe: int) -> Equipe:
     if equipe is None:
         raise NotFound("Équipe introuvable.")
     return equipe
+
+
+def exiger_un_joueur(utilisateur: Utilisateur) -> None:
+    """Un administrateur organise les tournois et en saisit les résultats : il n'y joue pas.
+
+    Pour participer, il utilise un second compte. Sans cette règle, il serait juge
+    et partie : il saisirait lui-même les résultats de sa propre équipe.
+    """
+    if utilisateur.est_administrateur:
+        logger.warning(
+            "Un administrateur a tenté de participer à un tournoi",
+            extra={"contexte": {"idUtilisateur": utilisateur.id_utilisateur}},
+        )
+        raise Forbidden("Un administrateur organise les tournois : il ne peut pas y participer. Utilisez un compte joueur.")
 
 
 def exiger_inscriptions_ouvertes(tournoi: Tournoi) -> None:

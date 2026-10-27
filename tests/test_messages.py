@@ -109,14 +109,19 @@ def test_l_administrateur_lit_tout_mais_n_ecrit_pas(decor):
     assert len(lire_messages(decor.capitaine, decor.id_equipe).get_json()) == 1
 
 
-def test_l_administrateur_qui_est_aussi_membre_peut_ecrire(fabrique_clients, jeu_a_postes):
-    """Il écrit en tant que membre de son équipe, pas en tant qu'administrateur."""
+def test_un_membre_devenu_administrateur_ecrit_toujours_en_tant_que_membre(fabrique_clients, jeu_a_postes):
+    """Un administrateur ne peut plus rejoindre une équipe, mais un joueur déjà membre puis promu garde sa place."""
+    from sqlalchemy import text
+
+    from project_organizer.utils import database
+
     decor = monter_decor(fabrique_clients, jeu_a_postes)
-    from .outils_equipes import equipe_creee
+    with database.session() as session:
+        session.execute(
+            text("UPDATE utilisateur SET est_administrateur = TRUE WHERE id_utilisateur = :u"), {"u": decor.capitaine.id_utilisateur}
+        )
 
-    id_equipe = equipe_creee(decor.admin, decor.id_tournoi, "Équipe de l'admin", decor.postes[1])
-
-    assert poster(decor.admin, id_equipe, "je joue aussi").status_code == 201
+    assert poster(decor.capitaine, decor.id_equipe, "je joue aussi").status_code == 201
 
 
 # --- Perte d'accès immédiate (B-17) -------------------------------------------------
