@@ -103,7 +103,7 @@ Claude le signale et demande confirmation.
 | Jeu de démonstration : `python scripts/donnees_demo.py` | ✅ |
 | Fiches de décision, rapport IA | ⏳ à écrire **par l'étudiant** |
 
-Limites connues (état en mémoire, un seul processus, pas de suppression d'équipe…) :
+Limites connues (état en mémoire, un seul processus, désistement seulement avant la clôture…) :
 `API.md` §7. Preuve des droits d'accès, exigence par exigence : `docs/TESTS_DROITS_ACCES.md`.
 
 Le détail route par route est dans [`API.md`](API.md).

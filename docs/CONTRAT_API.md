@@ -1,11 +1,12 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 9 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 10 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
 v6 : précisions sur les équipes, les demandes et les membres, issues de leur implémentation (§4).
 v7 : espace d'échange et `GET /api/moi/…` (§4, §6), authentification du socket et abonnement `equipe:suivre` (§7).
 v8 : règle de lancement « poste obligatoire » (§3), limites du temps réel et route de supervision (§7).
 v9 : la déconnexion révoque les jetons (§2.3) et coupe les sockets ouverts (§7), compteur `coupuresPourRevocation` (§7), cache HTTP par `ETag` (§1).
+v10 : désistement du capitaine, `DELETE /api/equipes/{id}` (§4) ; motif `dissolution` de `equipe:acces-revoque` (§7).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -335,6 +336,7 @@ Précisions (v5) :
 | `GET /api/equipes/{id}/demandes` | Capitaine | B-06 |
 | `PATCH /api/demandes/{id}` | Capitaine | B-06 |
 | `PATCH /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine | B-08, B-09 |
+| `DELETE /api/equipes/{id}` | Capitaine | B-06 |
 | `DELETE /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine, ou le membre lui-même | B-06, B-09, B-17 |
 | `GET /api/moi/equipes` | Connecté | B-16 (où joue-t-on ?) |
 | `GET /api/moi/demandes` | Connecté | B-06 (demandes en attente) |
@@ -390,6 +392,21 @@ deux capitaines, donc les deux écritures se font dans la même transaction.
 
 - `409` si les inscriptions sont closes (B-11).
 - `422` si le poste est déjà tenu par un autre membre de l'équipe.
+
+### `DELETE /api/equipes/{id}` (v10)
+
+Le **désistement** : le capitaine dissout son équipe tant que les inscriptions
+sont ouvertes. Les membres, les demandes en attente et les messages partent avec
+elle ; la place est libérée dans le tournoi et le nom redevient disponible.
+Chaque membre reçoit `equipe:acces-revoque` avec le motif `dissolution`.
+
+- `204` sans contenu.
+- `403` si l'appelant n'est pas le capitaine (l'administrateur non plus : il dispose de la disqualification).
+- `404` si l'équipe n'existe pas.
+- `409` si les inscriptions sont closes : une équipe inscrite à l'arbre ne disparaît plus.
+
+Un capitaine qui veut **partir en laissant l'équipe** passe d'abord la main
+(`PATCH …/membres/{id}` avec `estCapitaine`), puis quitte (`DELETE …/membres/{id}`).
 
 ### `DELETE /api/equipes/{id}/membres/{idUtilisateur}`
 
@@ -574,7 +591,7 @@ connexion **et** à chaque abonnement.
 | `message:nouveau` | Objet `Message` complet | Un membre poste (B-16) |
 | `rencontre:maj` | Objet `Rencontre` complet | Un résultat est validé (B-14, B-19) : un événement par rencontre modifiée, la jouée et celle qui reçoit le vainqueur |
 | `tournoi:maj` | Objet `Tournoi` complet | Changement d'état ou de nom (B-03, B-04). Après une transition, l'arbre a pu changer : le client le relit |
-| `equipe:acces-revoque` | `{ "idEquipe": 4, "motif": "exclusion" \| "elimination" \| "disqualification" }` | Le destinataire perd l'accès (B-17, B-18) |
+| `equipe:acces-revoque` | `{ "idEquipe": 4, "motif": "exclusion" \| "elimination" \| "disqualification" \| "dissolution" }` | Le destinataire perd l'accès (B-17, B-18) |
 
 **Les charges contiennent l'objet complet**, pas seulement un identifiant : le
 client affiche directement sans second aller-retour. C'est sans risque ici,
