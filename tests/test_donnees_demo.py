@@ -42,3 +42,33 @@ def test_les_mots_de_passe_de_demonstration_respectent_la_politique_de_l_api():
 
     assert len(module.ADMIN["mot_de_passe"]) >= 12
     assert len(module.MOT_DE_PASSE_JOUEURS) >= 12
+
+
+def test_les_postes_de_la_demonstration_sont_ceux_du_catalogue_de_jeux():
+    """Le script et le catalogue SQL nomment les postes pareil : sinon une équipe aurait plus de postes que de joueurs."""
+    module = _charger_le_script()
+
+    with database.session() as session:
+        lignes = session.execute(text(
+            "SELECT j.nom_jeu, j.joueurs_par_equipe, r.libelle_role FROM jeu j JOIN role_jeu r USING (id_jeu)"
+        )).all()
+    en_base: dict[str, list[str]] = {}
+    for nom, _, role in lignes:
+        en_base.setdefault(nom, []).append(role)
+    taille = {nom: k for nom, k, _ in lignes}
+
+    assert en_base, "le catalogue de jeux est vide"
+    for nom, postes in module.JEUX.items():
+        if nom in en_base:  # une base créée avant le catalogue n'a pas tous les jeux
+            assert sorted(en_base[nom]) == sorted(postes), nom
+            assert taille[nom] == len(postes), nom
+
+
+def test_chaque_jeu_du_catalogue_a_autant_de_postes_que_de_joueurs_par_equipe():
+    with database.session() as session:
+        ecarts = session.execute(text(
+            "SELECT j.nom_jeu FROM jeu j LEFT JOIN role_jeu r USING (id_jeu) "
+            "GROUP BY j.id_jeu, j.joueurs_par_equipe HAVING count(r.id_role) <> j.joueurs_par_equipe AND j.nom_jeu NOT LIKE 'test\\_%'"
+        )).scalars().all()
+
+    assert ecarts == []

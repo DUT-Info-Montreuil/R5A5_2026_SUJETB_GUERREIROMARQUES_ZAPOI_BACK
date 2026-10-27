@@ -45,7 +45,7 @@ Comptes et tournois de démonstration : `python scripts/donnees_demo.py`
 (**développement local uniquement**, jamais sur une base partagée : le script
 refuse de tourner si `COOKIE_SECURE=true`). Il crée un administrateur
 (`admin@agon-cup.fr`), 40 joueurs (`joueur01@demo.iut.fr` à `joueur40@demo.iut.fr`)
-et six tournois à des étapes différentes, puis affiche les mots de passe et
+et dix tournois (six à des étapes différentes, quatre sans équipe), puis affiche les mots de passe et
 quoi essayer avec quel compte. Il passe par les services réels : les données
 sont cohérentes (arbre, forfaits, propagation).
 
@@ -236,6 +236,7 @@ le vainqueur).
 | `GET /api/equipes/{id}/demandes` | Capitaine seulement (404 pour tout autre, administrateur compris) | B-06 | 200, 400, 401, 404 | ✅ |
 | `PATCH /api/demandes/{id}` | Capitaine | B-06 | 200, 400, 401, 404, 409, 422 | ✅ |
 | `PATCH /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine | B-08, B-09 | 200, 400, 401, 403, 404, 409, 422 | ✅ |
+| `DELETE /api/equipes/{id}` | Capitaine (désistement : l'équipe est dissoute) | B-06 | 204, 401, 403, 404, 409 | ✅ |
 | `DELETE /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine, ou le membre lui-même | B-06, B-09, B-17 | 204, 401, 403, 404, 409, 422 | ✅ |
 | `GET /api/equipes/{id}/messages` | Membre d'une équipe en lice, ou administrateur | B-16, B-18 | 200, 401, 404 | ✅ |
 | `POST /api/equipes/{id}/messages` | Membre d'une équipe en lice | B-16, B-18 | 201, 400, 401, 403, 404, 429 | ✅ |
@@ -381,7 +382,7 @@ des oublis. Les justifications vont dans les fiches de décision.
 5. **Derrière un proxy**, définir `PROXIES_DE_CONFIANCE=1`, sinon tous les
    clients ont l'adresse du proxy et partagent la limite de 5 connexions par
    minute (`utils/proxy.py`).
-6. **Pas de suppression d'équipe** : un capitaine seul est coincé (voir §4).
+6. **Désistement limité aux inscriptions ouvertes** : une fois les inscriptions closes, une équipe est dans l'arbre et ne peut plus être dissoute ; l'administrateur dispose de la disqualification.
 7. **L'équipe victorieuse perd son espace d'échange** à la fin du tournoi
    (statut `VAINQUEUR`, la règle d'accès demande `EN_LICE`).
 8. **Serveur de production non testé ici** (Nginx, arrêt progressif,
