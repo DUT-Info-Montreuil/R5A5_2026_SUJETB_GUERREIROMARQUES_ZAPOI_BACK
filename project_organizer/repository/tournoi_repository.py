@@ -45,10 +45,12 @@ def par_id(session: Session, id_tournoi: int, verrouiller: bool = False) -> Tour
 
 
 def nombre_equipes_inscrites(session: Session, id_tournoi: int) -> int:
+    """Nombre d'équipes inscrites à ce tournoi."""
     return session.scalar(select(func.count(Equipe.id_equipe)).where(Equipe.id_tournoi == id_tournoi)) or 0
 
 
 def ajouter(session: Session, nom_tournoi: str, id_jeu: int, nombre_equipes: int, cree_par: int) -> Tournoi:
+    """Crée un tournoi ; le schéma le fait naître aux inscriptions ouvertes."""
     tournoi = Tournoi(
         nom_tournoi=nom_tournoi,
         id_jeu=id_jeu,

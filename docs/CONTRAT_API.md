@@ -1,7 +1,11 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 5 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 9 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
+v6 : précisions sur les équipes, les demandes et les membres, issues de leur implémentation (§4).
+v7 : espace d'échange et `GET /api/moi/…` (§4, §6), authentification du socket et abonnement `equipe:suivre` (§7).
+v8 : règle de lancement « poste obligatoire » (§3), limites du temps réel et route de supervision (§7).
+v9 : la déconnexion révoque les jetons (§2.3) et coupe les sockets ouverts (§7), compteur `coupuresPourRevocation` (§7), cache HTTP par `ETag` (§1).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -97,6 +101,19 @@ C'est exactement le genre de faille que vos tests de droits d'accès doivent
 couvrir : un test « le capitaine ne peut pas modifier `statutEquipe` » vaut
 autant qu'un test sur la route entière.
 
+### 1.5 Cache HTTP (v9)
+
+Le cache est réglé par l'API, route par route, et jamais au petit bonheur :
+
+| Réponse | `Cache-Control` | Pourquoi |
+|---|---|---|
+| `GET` **public** réussi (tournois, jeux, arbre, équipes d'un tournoi) | `no-cache` + `ETag` | Le navigateur peut garder une copie mais **doit revalider** : si rien n'a changé, l'API répond `304` sans corps. Un résultat saisi est donc visible tout de suite. |
+| Toute autre réponse de `/api` (routes privées, écritures, erreurs) | `no-store` | Données personnelles ou état qui change : rien n'est conservé. |
+
+Il n'y a **jamais de `max-age`** : un `max-age` ferait afficher un arbre périmé
+pendant un tournoi en direct. Le temps réel prévient d'un changement ; le
+cache ne doit pas le masquer.
+
 ---
 
 ## 2. Authentification
@@ -126,7 +143,7 @@ règles.
 | `POST /api/auth/inscription` | Public, 5 essais par minute | `201 { utilisateur }` + cookie ; `409` pseudo ou e-mail pris ; `400` mot de passe de moins de 12 caractères |
 | `POST /api/auth/connexion` | Public, 5 essais par minute | `200 { utilisateur }` + cookie ; `401` ; `429` au-delà de la limite |
 | `GET /api/auth/moi` | Authentifié | `200 Utilisateur` : sert au front à restaurer la session au chargement |
-| `POST /api/auth/deconnexion` | Public | `204`, cookie effacé. Publique pour qu'une session expirée puisse être fermée |
+| `POST /api/auth/deconnexion` | Public | `204`, cookie effacé **et jeton révoqué** (v9) : l'appel est publique pour qu'une session expirée puisse être fermée, et sans effet de révocation si le cookie est absent ou invalide |
 
 `Utilisateur` : `{ idUtilisateur, pseudo, email, estAdministrateur }`.
 
@@ -193,6 +210,8 @@ déjà émis pour ce compte. À faire lors d'un changement de mot de passe, d'un
 retrait des droits d'administrateur, d'un soupçon de vol, ou d'une déconnexion
 de toutes les sessions.
 
+**v9 : la déconnexion incrémente `version_jeton`.** Un jeton copié avant la déconnexion cesse de fonctionner (`401`), et les autres appareils du même compte sont déconnectés aussi (« se déconnecter partout »). L'incrément est atomique (`UPDATE … WHERE version_jeton = :ver`) : rejouer un ancien jeton après une nouvelle connexion ne révoque pas la session récente. Les sockets ouverts avec ce jeton sont fermés par la boucle de surveillance (§7).
+
 Le coût est nul : la ligne de l'utilisateur est déjà lue à chaque requête. Pas
 de table de jetons révoqués, pas de jeton de rafraîchissement, pas de route
 supplémentaire.
@@ -209,6 +228,7 @@ supplémentaire.
 | `PATCH /api/tournois/{id}` | Administrateur | B-03, B-04, B-12 |
 | `GET /api/tournois/{id}/equipes` | Public | B-02 |
 | `GET /api/tournois/{id}/arbre` | Public | B-12, B-19 |
+| `GET /api/jeux/{id}/roles` | Public | B-05 (postes proposés à la création d'une équipe) |
 | `GET /api/jeux` | Public | B-01 (liste proposée à la création) |
 
 ### `GET /api/tournois`
@@ -295,9 +315,10 @@ Précisions (v5) :
   qualifications directes. Une rencontre du premier tour sans aucune équipe
   reste `EN_ATTENTE` pour toujours.
 - **Lancement** : une équipe est incomplète quand elle a moins de membres que
-  `jeu.joueursParEquipe`. Elle passe `ELIMINEE` ; si elle avait un adversaire,
+  `jeu.joueursParEquipe` **ou** qu'un de ses membres n'a pas de poste (B-08 :
+  cinq joueurs, chacun avec un rôle). Elle passe `ELIMINEE` ; si elle avait un adversaire,
   sa rencontre se termine en `FORFAIT` à son profit. `422` si moins de deux
-  équipes sont complètes.
+  équipes sont complètes, poste compris.
 - **Fin** : `409` tant que la finale n'a pas de vainqueur.
 - Une requête sans aucun champ → `400`.
 
@@ -315,6 +336,8 @@ Précisions (v5) :
 | `PATCH /api/demandes/{id}` | Capitaine | B-06 |
 | `PATCH /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine | B-08, B-09 |
 | `DELETE /api/equipes/{id}/membres/{idUtilisateur}` | Capitaine, ou le membre lui-même | B-06, B-09, B-17 |
+| `GET /api/moi/equipes` | Connecté | B-16 (où joue-t-on ?) |
+| `GET /api/moi/demandes` | Connecté | B-06 (demandes en attente) |
 
 ### `POST /api/tournois/{id}/equipes`
 
@@ -382,6 +405,20 @@ l'appelant.
 WebSocket active du joueur et lui émettre `equipe:acces-revoque`. Supprimer la
 ligne en base ne suffit pas — un socket déjà ouvert continuerait de recevoir les
 messages.
+
+### Précisions (v6)
+
+- **Réponses** — `Equipe` : `{ idEquipe, idTournoi, nomEquipe, statutEquipe, motifSortie?, membres: [ { idUtilisateur, pseudo, estCapitaine, role?: { idRole, libelleRole } } ] }`.
+  `Demande` : `{ idDemande, idEquipe, idUtilisateur, pseudo, statutDemande, creeLe, traiteLe? }`.
+  `role` est omis tant qu'aucun poste n'est attribué.
+- **Création** — `409` aussi si le tournoi est complet. `422` si `idRole` n'est pas un poste du jeu du tournoi. Un nom d'équipe est unique par tournoi, sans tenir compte de la casse.
+- **`POST /api/equipes/{id}/demandes`** — pas de corps. `409` si une demande est déjà en attente ou si les inscriptions sont closes ; `422` si le joueur a déjà une équipe dans ce tournoi, ou si l'équipe est complète.
+- **`GET /api/equipes/{id}/demandes`** — paramètre facultatif `statut` ; sans filtre, tout l'historique. `404` pour quiconque n'est pas capitaine de l'équipe, **administrateur compris**.
+- **`PATCH /api/demandes/{id}`** — `statutDemande` vaut `ACCEPTEE` ou `REFUSEE`. `404` si l'appelant n'est pas le capitaine de l'équipe. L'acceptation ajoute le joueur **sans poste**.
+- **`PATCH /api/equipes/{id}`** — `statutEquipe` n'accepte que `DISQUALIFIEE`. `403` si l'appelant n'est ni capitaine ni administrateur ; `400` si un champ est hors de la liste de son rôle. Disqualification : `409` si le tournoi n'est pas `EN_COURS` ou si l'équipe n'est plus en lice.
+- **`GET /api/moi/equipes`** (v7) — `[ { idEquipe, nomEquipe, statutEquipe, estCapitaine, idTournoi, nomTournoi, statutTournoi } ]`, les plus récentes d'abord. Sert à retrouver ses équipes sans parcourir chaque tournoi.
+- **`GET /api/moi/demandes`** (v7) — `[ { idDemande, statutDemande, creeLe, idEquipe, nomEquipe, idTournoi, nomTournoi } ]`, uniquement les demandes en attente de l'utilisateur.
+- **`PATCH …/membres/{idUtilisateur}`** — `estCapitaine` n'accepte que `true` : le capitanat se transmet, il ne se retire pas. `403` pour tout appelant qui n'est pas capitaine de l'équipe, administrateur compris (B-10).
 
 ---
 
@@ -490,6 +527,13 @@ tests de sécurité doivent couvrir.
 C'est ici que le `404` du §1.3 s'applique pleinement : un non-membre ne doit pas
 apprendre que l'espace existe.
 
+**Précisions (v7).**
+
+- `Message` : `{ idMessage, idEquipe, idAuteur?, pseudo?, contenu, envoyeLe }`. `idAuteur` et `pseudo` sont omis quand le compte de l'auteur a disparu.
+- `POST` : corps `{ contenu }`, texte brut de 1 à 2 000 caractères (espaces de bord retirés, message vide refusé en `400`). Réponse `201 Message`. `403` si l'appelant est administrateur ; `404` s'il n'est pas membre, si l'équipe n'est plus en lice ou si elle n'existe pas ; `429` au-delà de 30 messages par minute **et par utilisateur** (pas par adresse : une salle de TP partage la sienne).
+- Le message est diffusé aux membres abonnés par `message:nouveau` **après** la validation de la transaction.
+- Chaque refus d'accès est journalisé au niveau `WARNING` (équipe, utilisateur, lecture ou écriture, membre ou non), sans jamais en informer l'appelant au-delà du `404`.
+
 **Pagination : aucune.** `GET` renvoie tous les messages de l'équipe, du plus
 ancien au plus récent. Un tournoi dure une soirée, le volume reste faible. Si ça
 devenait un problème, l'ajout se ferait par un paramètre `avant=<idMessage>`
@@ -512,12 +556,16 @@ connexion **et** à chaque abonnement.
 | `tournoi:{idTournoi}` | Tout le monde, même non connecté (B-19) |
 | `equipe:{idEquipe}` | Membres de l'équipe uniquement, selon la règle du §6 |
 
-**Abonnement client → serveur** (v5)
+**Authentification du socket (v7).** À la connexion, le serveur lit le cookie `jeton`, le vérifie (signature, expiration, `ver` contre `utilisateur.version_jeton`) et garde l'identité **côté serveur**, par connexion. Un visiteur se connecte quand même : il ne peut suivre que les tournois. L'identité n'est **jamais** lue dans un message du client, et l'appartenance à l'équipe est revérifiée à **chaque** `equipe:suivre`.
+
+**Abonnement client → serveur** (v5, v7)
 
 | Événement | Charge | Accusé de réception |
 |---|---|---|
 | `tournoi:suivre` | `{ "idTournoi": 1 }` | `{ "ok": true }`, ou `false` si l'identifiant est invalide |
 | `tournoi:quitter` | `{ "idTournoi": 1 }` | idem |
+| `equipe:suivre` (v7) | `{ "idEquipe": 4 }` | `{ "ok": true }` ; `{ "ok": false }` pour **tous** les refus (non connecté, non-membre, espace fermé, équipe inconnue) : la réponse ne dit jamais pourquoi |
+| `equipe:quitter` (v7) | `{ "idEquipe": 4 }` | idem |
 
 **Événements serveur → client**
 
@@ -532,6 +580,18 @@ connexion **et** à chaque abonnement.
 client affiche directement sans second aller-retour. C'est sans risque ici,
 aucun de ces objets ne contient d'information sensible, et l'abonnement au salon
 a déjà été autorisé.
+
+**Limites (v8).** Elles protègent le serveur d'un client défaillant ou malveillant ; toutes sont réglables par variable d'environnement.
+
+| Limite | Valeur par défaut | Effet au-delà |
+|---|---|---|
+| Heartbeat | ping toutes les 20 s, pong attendu sous 15 s | connexion jugée morte et fermée (inférieur aux 60 s de `proxy_read_timeout` de Nginx) |
+| Taille d'un message reçu | 4 096 octets | la bibliothèque ferme la connexion |
+| Événements par connexion | 30 en 10 s | connexion coupée, `WARNING` journalisé |
+| Jeton expiré | vérifié toutes les 30 s | connexion fermée ; le client se reconnecte en visiteur |
+| Jeton révoqué (v9) | vérifié toutes les 30 s, avec l'expiration | connexion fermée ; le client se reconnecte en visiteur |
+
+**Supervision (v8)** : `GET /api/metriques/temps-reel`, **administrateur seulement** (`401` sans session, `403` pour un joueur). Renvoie `{ demarreLe, connexionsActives, connexionsAuthentifiees, ouverturesDerniereMinute, messagesDerniereMinute, ouverturesTotal, fermeturesTotal, messagesTotal, abonnementsRefuses, coupuresPourDebit, coupuresPourExpiration, coupuresPourRevocation }`. Les compteurs sont en mémoire : ils repartent de zéro au redémarrage.
 
 `equipe:acces-revoque` est l'événement qu'on oublie. Sans lui, un joueur exclu
 garde son écran de chat ouvert et continue de recevoir les messages jusqu'à ce
@@ -551,14 +611,14 @@ salon.
 | B-05 | `POST /api/tournois/{id}/equipes` |
 | B-06 | `POST /api/equipes/{id}/demandes`, `PATCH /api/demandes/{id}`, `DELETE …/membres/{id}` |
 | B-07 | `422` sur création d'équipe et acceptation de demande |
-| B-08 | `PATCH …/membres/{id}` (`idRole`), contrôle des 5 joueurs au lancement |
+| B-08 | `PATCH …/membres/{id}` (`idRole`), contrôle au lancement : 5 joueurs **et** un poste chacun |
 | B-09 | `PATCH /api/equipes/{id}`, `PATCH …/membres/{id}`, `DELETE …/membres/{id}` |
-| B-10 | `403` sur les routes d'équipe, et liste blanche de champs — **à tester** |
+| B-10 | `403` sur les routes d'équipe, et liste blanche de champs |
 | B-11 | `409` sur toutes les écritures d'équipe après clôture |
 | B-12 | Généré par la transition `INSCRIPTIONS_CLOSES`, lu par `GET …/arbre` |
-| B-13 | `403` sur `PATCH /api/rencontres/{id}` — **à tester** |
+| B-13 | `403` sur `PATCH /api/rencontres/{id}` |
 | B-14 | Propagation dans `PATCH /api/rencontres/{id}` |
-| B-15 | `PATCH /api/rencontres/{id}` avec `typeResultat: "FORFAIT"` |
+| B-15 | `PATCH /api/rencontres/{id}` avec `typeResultat: "FORFAIT"` ; `PATCH /api/equipes/{id}` → `DISQUALIFIEE` |
 | B-16 | `GET`/`POST …/messages` + `message:nouveau` |
 | B-17 | `DELETE …/membres/{id}` + `equipe:acces-revoque` + expulsion du salon |
 | B-18 | Règle d'accès du §6 + `equipe:acces-revoque` |
@@ -595,6 +655,11 @@ mais ces règles-là restent du ressort de Flask.
 | 9 | Révocation | Colonne `utilisateur.version_jeton` comparée à chaque requête (§2.3) |
 | 10 | Transport du jeton (v4) | Cookie `HttpOnly` `SameSite=Lax`, plus d'en-tête `Authorization` (§2) |
 | 11 | Mots de passe (v4) | argon2, 12 caractères minimum, 5 essais par minute |
+| 12 | Écritures du chat (v7) | En HTTP, jamais par le socket : le socket notifie, il ne crée pas |
+| 13 | Identité du socket (v7) | Lue dans le cookie à la connexion, gardée côté serveur, jamais dans un message |
+| 14 | Limites du temps réel (v8) | Heartbeat 20 s / 15 s, 4 096 octets, 30 événements par 10 s, fermeture à l'expiration du jeton |
+| 15 | Déconnexion (v9) | Révoque le jeton (`version_jeton`) et coupe les sockets ouverts ; « se déconnecter » vaut « se déconnecter partout » |
+| 16 | Cache HTTP (v9) | `no-cache` + `ETag` sur les `GET` publics (revalidation, `304`), `no-store` partout ailleurs ; jamais de `max-age` |
 
 Ce document est figé. Toute modification ultérieure est un changement de
 contrat : annoncée à l'autre, répercutée des deux côtés dans la même séance.

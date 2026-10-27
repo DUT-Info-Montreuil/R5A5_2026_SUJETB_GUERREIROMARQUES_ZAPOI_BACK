@@ -23,16 +23,19 @@ class FiltreTournoisDto(ModeleEntree):
 
 
 class JeuDto(ModeleApi):
+    """Un jeu proposé aux tournois, avec la taille de ses équipes."""
     id_jeu: int
     nom_jeu: str
     joueurs_par_equipe: int
 
 
 class ListeJeuxDto(RootModel[list[JeuDto]]):
+    """Les jeux disponibles, par ordre alphabétique."""
     pass
 
 
 class TournoiResumeDto(ModeleApi):
+    """Un tournoi vu dans une liste : nom, jeu, état et remplissage."""
     id_tournoi: int
     nom_tournoi: str
     jeu: JeuDto
@@ -43,6 +46,7 @@ class TournoiResumeDto(ModeleApi):
 
 
 class ListeTournoisDto(RootModel[list[TournoiResumeDto]]):
+    """Une liste de tournois."""
     pass
 
 
@@ -64,6 +68,7 @@ def _nom_non_vide(valeur: str | None) -> str | None:
 
 
 class CreationTournoiDto(ModeleEntree):
+    """Corps de POST /api/tournois : nom, jeu et nombre d'équipes (8 par défaut ; 2, 4 ou 16 acceptés)."""
     nom_tournoi: str = Field(max_length=150, examples=["Coupe de printemps"])
     id_jeu: int = Field(gt=0, examples=[1])
     nombre_equipes: NombreEquipes = NOMBRE_EQUIPES_PAR_DEFAUT
@@ -90,6 +95,7 @@ class ModificationTournoiDto(ModeleEntree):
 
 
 class EquipeDuTournoiDto(ModeleApi):
+    """Une équipe inscrite à un tournoi : effectif et état dans la compétition."""
     id_equipe: int
     nom_equipe: str
     statut_equipe: StatutEquipe
@@ -98,14 +104,17 @@ class EquipeDuTournoiDto(ModeleApi):
 
 
 class ListeEquipesDuTournoiDto(RootModel[list[EquipeDuTournoiDto]]):
+    """Les équipes d'un tournoi, par ordre d'inscription."""
     pass
 
 
 def jeu_vers_dto(jeu: Jeu) -> JeuDto:
+    """Convertit un jeu en réponse d'API."""
     return JeuDto(id_jeu=jeu.id_jeu, nom_jeu=jeu.nom_jeu, joueurs_par_equipe=jeu.joueurs_par_equipe)
 
 
 def tournoi_vers_dto(tournoi: Tournoi, nombre_equipes_inscrites: int) -> TournoiResumeDto:
+    """Convertit un tournoi en réponse d'API de liste, avec le nombre d'équipes inscrites."""
     return TournoiResumeDto(
         id_tournoi=tournoi.id_tournoi,
         nom_tournoi=tournoi.nom_tournoi,
@@ -118,6 +127,7 @@ def tournoi_vers_dto(tournoi: Tournoi, nombre_equipes_inscrites: int) -> Tournoi
 
 
 def tournoi_complet_vers_dto(tournoi: Tournoi, nombre_equipes_inscrites: int) -> TournoiDto:
+    """Convertit un tournoi en réponse d'API complète : celle de la liste, plus les dates des étapes atteintes."""
     return TournoiDto(
         **tournoi_vers_dto(tournoi, nombre_equipes_inscrites).model_dump(),
         inscriptions_closes_le=tournoi.inscriptions_closes_le,
@@ -127,6 +137,7 @@ def tournoi_complet_vers_dto(tournoi: Tournoi, nombre_equipes_inscrites: int) ->
 
 
 def equipe_du_tournoi_vers_dto(equipe: Equipe, nombre_membres: int) -> EquipeDuTournoiDto:
+    """Convertit une équipe inscrite et son effectif en réponse d'API."""
     return EquipeDuTournoiDto(
         id_equipe=equipe.id_equipe,
         nom_equipe=equipe.nom_equipe,

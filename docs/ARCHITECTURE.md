@@ -39,15 +39,20 @@ R5A5_..._BACK/
 ├── .env.example                Modèle de configuration (le .env n'est pas versionné)
 ├── sql/
 │   ├── schema_R5A5_sujetB.sql  Source de vérité du schéma
-│   ├── donnees_demo.sql        Données de démonstration, jouées à la main
 │   └── tests_contraintes.sql   Tests d'intégrité, joués à la création du conteneur
-├── docs/
+├── scripts/
+│   └── donnees_demo.py         Comptes et tournois de démonstration (local seulement)
+├── docs/                       Contrat, architecture, décisions, TESTS_DROITS_ACCES.md
 ├── tests/
-│   ├── conftest.py
+│   ├── conftest.py, outils_equipes.py   Fixtures et assistants
 │   ├── test_socle.py           Vérifie que l'architecture tient ses promesses
-│   ├── test_authentification.py
 │   ├── test_protection.py      Toute route non publique exige un jeton
-│   ├── test_tournois.py
+│   ├── test_authentification.py, test_tournois.py, test_arbre.py, test_cycle_tournoi.py
+│   ├── test_equipes.py, test_demandes.py, test_moi.py       Droits d'accès des équipes
+│   ├── test_messages.py        Espace d'échange : règle d'accès unique
+│   ├── test_temps_reel.py, test_temps_reel_limites.py       Socket : droits, plafonds, métriques
+│   ├── test_complements_securite.py   Cookie, journal des refus, proxy
+│   ├── test_donnees_demo.py
 │   └── test_documentation.py   Documentation générée et validation au format du contrat
 └── project_organizer/
     ├── __main__.py             Lancement : python -m project_organizer
@@ -60,7 +65,7 @@ R5A5_..._BACK/
     ├── services/               Règles métier              (modèle : sante_service.py)
     ├── repository/             Accès à la base            (modèle : sante_repository.py)
     ├── models/                 Modèles ORM, une classe par table (types.py : ENUM PostgreSQL)
-    ├── sockets/                Événements temps réel      (connexion / déconnexion)
+    ├── sockets/                Événements temps réel : identité, abonnements, plafonds (__init__.py), diffusion après commit (diffusion.py)
     └── utils/
         ├── database.py         Moteur et sessions transactionnelles
         ├── journalisation.py   Logs sur la sortie standard, en JSON
@@ -68,6 +73,9 @@ R5A5_..._BACK/
         ├── erreurs.py          Erreurs métier → format du contrat
         ├── authentification.py Jeton en cookie, @publique, @administrateur_requis
         ├── mots_de_passe.py    Hachage argon2
+        ├── metriques.py        Compteurs du temps réel (en mémoire, verrouillés)
+        ├── proxy.py            Adresse réelle du client derrière un reverse proxy (PROXIES_DE_CONFIANCE)
+        ├── cache_http.py       Politique de cache : no-cache + ETag sur les GET publics, no-store ailleurs
         └── entetes_securite.py En-têtes de sécurité sur toutes les réponses
 ```
 
@@ -297,6 +305,13 @@ gestionnaire d'abonnement WebSocket. Trois implémentations séparées, c'est
 trois occasions de diverger — et ce sont précisément les points visés par les
 tests de sécurité.
 
+**La surveillance coupe aussi les jetons révoqués.** La boucle de surveillance
+(`sockets._surveiller`, toutes les `SOCKET_VERIFICATION_SECONDES`) ferme les
+connexions dont le jeton a expiré, **et** celles dont `ver` ne correspond plus à
+`version_jeton` (`fermer_les_connexions_revoquees`, une requête groupée pour
+toutes les connexions). Un joueur qui se déconnecte voit donc ses sockets
+fermés au plus 30 s plus tard ; les requêtes HTTP, elles, sont refusées tout de suite.
+
 **B-17 ne se règle pas qu'en base.** Exclure un joueur supprime sa ligne dans
 `composer`, mais un socket déjà ouvert continuerait de recevoir les messages.
 Le service d'exclusion doit aussi émettre `equipe:acces-revoque` et retirer le
@@ -352,6 +367,18 @@ connexion et l'inscription (5 par minute et par adresse par défaut).
 **En-têtes de sécurité** : `utils/entetes_securite.py` pose `nosniff`,
 `X-Frame-Options: DENY` et une `Content-Security-Policy` stricte sur toutes les
 réponses, sauf la page Swagger.
+
+**Cache HTTP** : `utils/cache_http.py` applique une politique unique. Les `GET`
+publics réussis reçoivent `Cache-Control: no-cache` et un `ETag` (le navigateur
+revalide, l'API répond `304` si rien n'a changé) ; tout le reste de `/api` est
+`no-store`. Jamais de `max-age` : un arbre en direct ne doit pas être périmé
+(contrat §1.5).
+
+**Déconnexion = révocation.** `POST /api/auth/deconnexion` lit le jeton s'il est
+valide et incrémente `version_jeton` (`auth_service.revoquer_les_sessions`) par
+un `UPDATE … WHERE version_jeton = :ver` atomique : rejouer un vieux jeton après
+une nouvelle connexion ne révoque pas la session récente. Le contrôleur ne
+touche pas à la base : il délègue au service, qui passe par le repository.
 
 Code HTTP selon la situation (§1.3 du contrat) :
 

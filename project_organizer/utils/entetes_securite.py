@@ -12,6 +12,7 @@ _PREFIXE_DOCUMENTATION = "/apidoc"
 
 
 def installer(app: Flask) -> None:
+    """Pose les en-têtes de sécurité sur chaque réponse de l'application."""
     @app.after_request
     def _poser_entetes(reponse: Response) -> Response:
         reponse.headers["X-Content-Type-Options"] = "nosniff"

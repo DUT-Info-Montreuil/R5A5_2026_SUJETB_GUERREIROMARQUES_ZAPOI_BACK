@@ -9,11 +9,53 @@ pour fonctionner.
 
 | Document | Contenu |
 |---|---|
-| [`API.md`](API.md) | Documentation de l'API : démarrage rapide, routes, temps réel, état d'avancement |
-| [`CLAUDE.md`](CLAUDE.md) | Règles de travail avec Claude (français, PR obligatoires, pas de secret…) et contexte du projet |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Organisation du code, règles entre les couches, conventions |
 | [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Contrat figé entre le front et le back |
+| [`docs/TESTS_DROITS_ACCES.md`](docs/TESTS_DROITS_ACCES.md) | Chaque règle d'accès du sujet, avec le test qui la prouve |
+| [`API.md`](API.md) | Routes, temps réel, limites connues |
 | [`docs/decisions/`](docs/decisions/) | Fiches de décision |
+
+---
+
+## Démarrage rapide : toute la pile avec Docker
+
+Pour voir le site fonctionner sans rien installer d'autre que Docker : la base,
+l'API et l'interface démarrent ensemble, derrière un seul port.
+
+```bash
+mkdir agon-cup && cd agon-cup
+git clone <adresse du dépôt back>  back
+git clone <adresse du dépôt front> front
+cd back
+docker compose -f docker-compose.complet.yml up --build
+```
+
+Quand les trois services sont `healthy` (1 à 3 minutes la première fois, le
+temps de construire les images), ouvrir **http://localhost:8080**.
+
+Pour ajouter les comptes et tournois de démonstration, dans un second terminal :
+
+```bash
+docker compose -f docker-compose.complet.yml --profile demo run --rm demo
+```
+
+La commande affiche les identifiants (`admin@agon-cup.fr`, `joueur01@demo.iut.fr`…)
+et quoi essayer avec chacun. Arrêter : `Ctrl+C`, puis
+`docker compose -f docker-compose.complet.yml down` (ajouter `-v` pour effacer la base).
+
+| Réglage (variable d'environnement) | Rôle | Défaut |
+|---|---|---|
+| `PORT_WEB` | Port de l'interface | `8080` |
+| `CHEMIN_FRONT` | Dossier du dépôt front | `../front` |
+| `FLASK_SECRET_KEY` | Clé de signature des sessions | tirée au hasard à chaque démarrage |
+
+L'interface (nginx) sert le site **et** relaie `/api` et le WebSocket vers l'API :
+le navigateur ne parle qu'à `localhost:8080`, ce qui évite tout réglage CORS.
+Le serveur de l'API est **gunicorn** (un processus, 100 threads), pas le serveur
+de développement de Flask.
+
+Pour **développer** (rechargement automatique, tests), suivre l'installation
+ci-dessous : la base seule dans Docker, l'API et le front sur la machine.
 
 ---
 
@@ -35,7 +77,7 @@ Rien d'autre : PostgreSQL n'est **pas** à installer sur la machine.
 docker compose up -d
 ```
 
-PostgreSQL 16 démarre, crée la base `tournoi.py` et joue automatiquement les
+PostgreSQL 16 démarre, crée la base `tournois` et joue automatiquement les
 scripts du dossier `sql/` : le schéma, puis la suite de tests d'intégrité.
 
 Vérifier qu'elle tourne :
@@ -45,7 +87,7 @@ docker compose ps        # r5a5_db doit être « healthy »
 ```
 
 Une interface d'inspection (Adminer) est disponible sur `http://localhost:8080` :
-serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournoi.py`.
+serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournois`.
 
 ### 2. Environnement Python
 
@@ -85,6 +127,10 @@ Les valeurs par défaut conviennent au docker-compose fourni. Seule
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
+L'API **refuse de démarrer** si la clé fait moins de 32 caractères ou si c'est
+encore la valeur du modèle (`a-remplacer…`) : une clé devinable permettrait de
+fabriquer de faux jetons.
+
 Le fichier `.env` n'est jamais versionné.
 
 ---
@@ -98,8 +144,34 @@ python -m project_organizer
 | Adresse | Rôle |
 |---|---|
 | `http://localhost:5000/health` | État de l'API et de la base |
+| `http://localhost:5000/apidoc/swagger` | Documentation interactive de l'API |
+
+L'API écoute sur `127.0.0.1` (la machine seulement) ; `HOTE=0.0.0.0` l'ouvre au
+réseau local, ce qu'il ne faut faire qu'en connaissance de cause. Le mode debug
+de Flask ne s'active qu'avec `FLASK_DEBUG=true`.
 
 Si `/health` répond `"statut": "ok"` avec `"tables": 9`, tout est en place.
+
+---
+
+## Comptes et données de démonstration
+
+Pour essayer le site avec des comptes déjà prêts (**local uniquement**) :
+
+```bash
+python scripts/donnees_demo.py
+```
+
+Le script crée un administrateur, 40 joueurs et six tournois à des étapes différentes (inscriptions ouvertes, closes, en cours, terminé…), puis affiche les identifiants et quoi essayer avec quel compte. Il est rejouable ; `--reinitialiser` supprime les tournois de démonstration puis les recrée. Il refuse de tourner si `COOKIE_SECURE=true` (ses mots de passe sont publics).
+
+| Profil | Comment l'obtenir |
+|---|---|
+| Visiteur | Rien à faire : ne pas se connecter |
+| Joueur | S'inscrire sur `/inscription`, ou utiliser `joueur01@demo.iut.fr` |
+| Capitaine | Un joueur qui crée une équipe dans un tournoi aux inscriptions ouvertes |
+| Administrateur | `admin@agon-cup.fr`, ou promouvoir un compte : `docker compose exec db psql -U r5a5 -d tournois -c "UPDATE utilisateur SET est_administrateur = TRUE WHERE pseudo = 'monpseudo';"` puis recharger la page |
+
+Pour tester plusieurs profils en même temps, utiliser des fenêtres de navigation privée distinctes (le cookie de session est partagé dans une même fenêtre).
 
 ---
 

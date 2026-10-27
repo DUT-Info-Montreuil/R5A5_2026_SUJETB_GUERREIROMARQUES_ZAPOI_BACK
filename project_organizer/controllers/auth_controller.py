@@ -1,5 +1,7 @@
 """Routes d'authentification (contrat §2)."""
 
+import logging
+
 from flask import Blueprint, Response as ReponseFlask, g, jsonify, request
 from flask_pydantic_spec import Response
 
@@ -14,7 +16,15 @@ from ..dtos.auth_dto import (
 from ..dtos.base import ErreurDto
 from ..extensions import limiter, spec
 from ..services import auth_service
-from ..utils.authentification import fermer_session, ouvrir_session, publique, utilisateur_courant
+from ..utils.authentification import (
+    fermer_session,
+    identite_du_jeton,
+    ouvrir_session,
+    publique,
+    utilisateur_courant,
+)
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -79,8 +89,17 @@ def moi():
 @publique
 @spec.validate(resp=Response(HTTP_204=None), tags=["Authentification"])
 def deconnexion():
-    """Fermer la session : efface le cookie.
+    """Fermer la session : efface le cookie **et révoque les jetons du compte**.
 
-    Publique pour qu'une session déjà expirée puisse quand même être fermée.
+    Effacer le cookie ne suffit pas : un jeton volé resterait valable jusqu'à son expiration
+    (12 h). La déconnexion incrémente donc `version_jeton` : le jeton est refusé tout de suite,
+    sur tous les appareils du compte, et ses connexions temps réel sont coupées sous 30 s.
+
+    Publique pour qu'une session déjà expirée puisse quand même être fermée : sans jeton
+    valable, il n'y a rien à révoquer et la réponse reste 204.
     """
+    identite = identite_du_jeton()
+    if identite is not None:
+        if auth_service.revoquer_les_sessions(*identite):
+            logger.info("Sessions révoquées à la déconnexion", extra={"contexte": {"idUtilisateur": identite[0]}})
     return fermer_session(ReponseFlask(status=204))

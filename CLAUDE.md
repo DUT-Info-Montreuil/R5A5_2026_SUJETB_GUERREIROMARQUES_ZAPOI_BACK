@@ -87,18 +87,24 @@ Claude le signale et demande confirmation.
   UX 1. Les tests visés sont des **tests de sécurité** : pour chaque règle
   d'accès, un test qui prouve qu'un utilisateur non autorisé est refusé.
 
-### Où en est-on (branche `feature/tournois`)
+### Où en est-on
 
 | Domaine | État |
 |---|---|
-| Authentification (inscription, connexion, `moi`, déconnexion), cookie HttpOnly, révocation par `version_jeton` | ✅ |
+| Authentification (inscription, connexion, `moi`, déconnexion), cookie HttpOnly de 12 h, révocation par `version_jeton` | ✅ |
 | Tournois : liste, détail, création, machine à états, équipes inscrites, arbre | ✅ |
 | Rencontres : saisie d'un résultat (normal, forfait, qualification directe) + propagation dans l'arbre | ✅ |
-| Temps réel : salon `tournoi:{id}`, événements `tournoi:maj` et `rencontre:maj` | ✅ |
-| **Équipes** : création, renommage, demandes d'adhésion, rôles, exclusion, passation du capitanat (B-05 à B-11) | ⏳ tables SQL prêtes (`equipe`, `composer`, `demande_adhesion`, `role_jeu`) ; modèles ORM `Equipe` et `Composer` seulement ; aucune route d'écriture |
-| **Espace d'échange** : messages d'équipe, salon `equipe:{id}`, `equipe:acces-revoque` (B-16 à B-18) | ⏳ table SQL `message` prête ; ni modèle ORM, ni route, ni événement |
-| Disqualification (`PATCH /api/equipes/{id}`, B-15) | ⏳ |
+| **Équipes** : création, renommage, demandes d'adhésion, postes, exclusion, passation du capitanat, disqualification (B-05 à B-11, B-15) | ✅ testé — au lancement, un membre sans poste rend l'équipe incomplète (B-08) |
+| **Espace d'échange** : messages, salon `equipe:{id}`, `equipe:acces-revoque` (B-16 à B-18) | ✅ une seule règle d'accès pour les routes et le socket |
+| Temps réel : authentification du socket, heartbeat, plafonds, fermeture à l'expiration **ou à la révocation** du jeton, métriques | ✅ |
+| Déconnexion qui révoque le jeton (tous les appareils), cache HTTP (`ETag`, `no-store`), refus d'une clé secrète faible | ✅ |
+| Déploiement : `Dockerfile` (gunicorn), `docker-compose.complet.yml` (base + API + interface) | ✅ |
+| Journalisation : une ligne par requête, WARNING pour chaque refus d'accès | ✅ |
+| Jeu de démonstration : `python scripts/donnees_demo.py` | ✅ |
 | Fiches de décision, rapport IA | ⏳ à écrire **par l'étudiant** |
+
+Limites connues (état en mémoire, un seul processus, pas de suppression d'équipe…) :
+`API.md` §7. Preuve des droits d'accès, exigence par exigence : `docs/TESTS_DROITS_ACCES.md`.
 
 Le détail route par route est dans [`API.md`](API.md).
 
@@ -115,10 +121,11 @@ Tout se lance depuis la racine du dépôt, environnement Python activé
 | Installer | `python -m pip install -r requirements.txt` |
 | Configurer | copier `.env.example` en `.env`, y mettre une clé : `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | **Lancer les tests** | `python -m pytest` — la base doit tourner |
-| Lancer le serveur | `python -m project_organizer` → http://localhost:5000 |
+| Lancer le serveur | `python -m project_organizer` → http://localhost:5000 (écoute `HOTE`, `127.0.0.1` par défaut ; debug seulement si `FLASK_DEBUG=true`) |
+| **Toute la pile en Docker** | `docker compose -f docker-compose.complet.yml up --build` → http://localhost:8080 (le dépôt front doit être dans `../front`) |
 | Documentation Swagger | http://localhost:5000/apidoc/swagger |
 | Tests d'intégrité SQL | voir README, section « Tests » |
-| Données de démo (local seulement) | `sql/donnees_demo.sql`, joué à la main |
+| Données de démo (local seulement) | `python scripts/donnees_demo.py` (`--reinitialiser` pour repartir de zéro) : crée `admin@agon-cup.fr` et 40 joueurs, affiche les mots de passe |
 | Réinitialiser la base | `docker compose down -v && docker compose up -d` — **demander d'abord** |
 
 **Avant toute PR** : `python -m pytest` doit passer en entier, et la nouvelle
@@ -197,7 +204,7 @@ Modèle à recopier : le trajet de `/health`, ou `tournoi_*` pour une ressource 
 ## 6. Temps réel (4 points) — règles tirées du cours
 
 Choix du projet : **Flask-SocketIO** (chat bidirectionnel + salons natifs).
-Voir la fiche de décision n° 02 (à rédiger par l'étudiant). Rappel du cours :
+Voir la fiche de décision n° 02 (à rédiger par l'étudiant ; `docs/decisions/` contient la matière factuelle). Rappel du cours :
 polling < SSE < WebSocket < Socket.IO < WebRTC en complexité ; on ne prend le
 canal bidirectionnel que si le besoin le justifie. Ici : SSE suffirait pour le
 suivi du tournoi (B-19), mais le chat (B-16) a besoin des deux sens.
@@ -223,15 +230,16 @@ suivi du tournoi (B-19), mais le chat (B-16) a besoin des deux sens.
    coupure sont perdus (pas de `Last-Event-ID` en WebSocket). Le client relit
    l'état par HTTP, et **rejoint à nouveau ses salons** à chaque `connect`.
 7. **Charges = objet complet** (contrat §7) ; ne jamais y mettre de donnée
-   sensible. Taille des messages bornée (1 Mio pour le corps HTTP aujourd'hui) ;
-   à prévoir : longueur max d'un message de chat, débit limité par connexion.
+   sensible. Taille bornée : 4 096 octets par message socket, 2 000 caractères par message de chat, 30 événements par 10 s et par connexion.
 8. **Heartbeat / ping** à une période inférieure au `proxy_read_timeout` du
-   proxy (60 s par défaut sous Nginx ; Socket.IO envoie le sien toutes les 25 s).
+   proxy (60 s par défaut sous Nginx ; réglé ici à un ping toutes les 20 s, pong sous 15 s).
 9. **Production** (si on déploie derrière Nginx) : en-têtes `Upgrade` /
    `Connection "upgrade"` pour `/socket.io/`, `proxy_buffering off` pour tout
    flux, arrêt progressif du serveur, reconnexion avec délai croissant aléatoire.
 10. **Mode asynchrone** : `async_mode="threading"` (dev). Une connexion = un
     thread ; suffisant pour un tournoi d'une soirée, à justifier à l'oral.
+11. **Derrière un proxy**, `PROXIES_DE_CONFIANCE=1` (sinon la limite de
+    connexion est partagée par tous les clients).
 
 ---
 

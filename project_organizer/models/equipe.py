@@ -1,3 +1,5 @@
+"""Modèle de la table equipe : une équipe inscrite à un tournoi."""
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text
@@ -10,6 +12,7 @@ STATUTS_EQUIPE = ("EN_LICE", "ELIMINEE", "DISQUALIFIEE", "VAINQUEUR")
 
 
 class Equipe(Base):
+    """Table equipe : une équipe inscrite à un tournoi."""
     __tablename__ = "equipe"
 
     id_equipe: Mapped[int] = mapped_column(BigInteger, primary_key=True)

@@ -16,11 +16,12 @@ from sqlalchemy.orm import Session
 
 from ..dtos.tournoi_dto import tournoi_complet_vers_dto
 from ..models import Equipe, Jeu, Rencontre, Tournoi
-from ..repository import equipe_repository, jeu_repository, rencontre_repository, tournoi_repository
+from ..repository import composer_repository, equipe_repository, jeu_repository, rencontre_repository, tournoi_repository
 from ..sockets import diffusion
 from ..utils import database
 from ..utils.erreurs import BadRequest, Conflict, NotFound, UnprocessableEntity
 from . import arbre as arbre_du_tournoi
+from . import espace_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,22 +29,26 @@ NOMBRE_MIN_EQUIPES = 2
 
 
 def lister(recherche: str | None, statut: str | None) -> list[tuple[Tournoi, int]]:
+    """Les tournois, filtrables par nom et par état, chacun avec son nombre d'équipes inscrites."""
     with database.session() as session:
         return tournoi_repository.lister(session, recherche.strip() if recherche else None, statut)
 
 
 def lister_jeux() -> list[Jeu]:
+    """Tous les jeux, pour proposer le choix à la création d'un tournoi."""
     with database.session() as session:
         return jeu_repository.lister(session)
 
 
 def detail(id_tournoi: int) -> tuple[Tournoi, int]:
+    """Un tournoi et son nombre d'équipes inscrites ; 404 s'il n'existe pas."""
     with database.session() as session:
         tournoi = tournoi_ou_404(session, id_tournoi)
         return tournoi, tournoi_repository.nombre_equipes_inscrites(session, id_tournoi)
 
 
 def equipes(id_tournoi: int) -> list[tuple[Equipe, int]]:
+    """Les équipes d'un tournoi avec leur effectif ; 404 si le tournoi n'existe pas."""
     with database.session() as session:
         tournoi_ou_404(session, id_tournoi)
         return equipe_repository.du_tournoi(session, id_tournoi)
@@ -67,6 +72,7 @@ def modifier(id_tournoi: int, nom_tournoi: str | None, statut_tournoi: str | Non
     with database.session() as session:
         tournoi = tournoi_ou_404(session, id_tournoi, verrouiller=True)
         statut_precedent = tournoi.statut_tournoi
+        revocations: list[espace_service.Revocation] = []
 
         if nom_tournoi is not None:
             tournoi.nom_tournoi = nom_tournoi
@@ -74,7 +80,7 @@ def modifier(id_tournoi: int, nom_tournoi: str | None, statut_tournoi: str | Non
             transition = _TRANSITIONS.get((statut_precedent, statut_tournoi))
             if transition is None:
                 raise Conflict(f"Transition impossible : {statut_precedent} → {statut_tournoi}.")
-            transition(session, tournoi)
+            revocations = transition(session, tournoi) or []
             tournoi.statut_tournoi = statut_tournoi
 
         session.flush()
@@ -88,6 +94,7 @@ def modifier(id_tournoi: int, nom_tournoi: str | None, statut_tournoi: str | Non
             extra={"contexte": {"idTournoi": id_tournoi, "de": statut_precedent, "vers": statut_tournoi}},
         )
     diffusion.tournoi_maj(id_tournoi, tournoi_complet_vers_dto(tournoi, nombre_inscrites).vers_json())
+    espace_service.notifier(revocations)
     return tournoi, nombre_inscrites
 
 
@@ -131,22 +138,32 @@ def _clore_inscriptions(session: Session, tournoi: Tournoi) -> None:
     tournoi.inscriptions_closes_le = func.now()
 
 
-def _lancer(session: Session, tournoi: Tournoi) -> None:
+def _lancer(session: Session, tournoi: Tournoi) -> list[espace_service.Revocation]:
     """INSCRIPTIONS_CLOSES → EN_COURS.
 
-    B-04 : une équipe qui n'a pas le nombre de joueurs requis par le jeu est
-    déclarée forfait ; son adversaire du premier tour est qualifié d'office.
+    B-04 : une équipe incomplète est déclarée forfait ; son adversaire du premier
+    tour est qualifié d'office.
+    B-08 : une équipe est complète quand elle a le nombre de joueurs requis par
+    le jeu ET que chacun a un poste. Cinq joueurs dont deux sans poste ne
+    forment pas une équipe de cinq « chacun avec un rôle de jeu ».
+    Renvoie les accès d'espace d'échange à retirer aux équipes éliminées (B-18).
     """
     joueurs_requis = tournoi.jeu.joueurs_par_equipe
     inscrites = equipe_repository.du_tournoi(session, tournoi.id_tournoi)
-    completes = [equipe for equipe, membres in inscrites if membres >= joueurs_requis]
+    postes = composer_repository.postes_attribues(session, tournoi.id_tournoi)
+
+    def est_complete(equipe: Equipe, membres: int) -> bool:
+        return membres >= joueurs_requis and postes.get(equipe.id_equipe, 0) >= joueurs_requis
+
+    completes = [equipe for equipe, membres in inscrites if est_complete(equipe, membres)]
     if len(completes) < NOMBRE_MIN_EQUIPES:
         raise UnprocessableEntity(
-            f"Moins de deux équipes ont {joueurs_requis} joueurs : le tournoi ne peut pas commencer."
+            f"Moins de deux équipes sont complètes ({joueurs_requis} joueurs, chacun avec un poste) : "
+            "le tournoi ne peut pas commencer."
         )
 
     equipes_par_id = {equipe.id_equipe: equipe for equipe, _ in inscrites}
-    incompletes = {equipe.id_equipe for equipe, membres in inscrites if membres < joueurs_requis}
+    incompletes = {equipe.id_equipe for equipe, membres in inscrites if not est_complete(equipe, membres)}
     for id_equipe in incompletes:
         equipes_par_id[id_equipe].statut_equipe = "ELIMINEE"
 
@@ -166,6 +183,7 @@ def _lancer(session: Session, tournoi: Tournoi) -> None:
             extra={"contexte": {"idTournoi": tournoi.id_tournoi, "idEquipes": sorted(incompletes)}},
         )
     tournoi.demarre_le = func.now()
+    return [espace_service.revocation_de_l_equipe(session, id_equipe, "elimination") for id_equipe in sorted(incompletes)]
 
 
 def _terminer(session: Session, tournoi: Tournoi) -> None:
@@ -178,7 +196,7 @@ def _terminer(session: Session, tournoi: Tournoi) -> None:
     tournoi.termine_le = func.now()
 
 
-_TRANSITIONS: dict[tuple[str, str], Callable[[Session, Tournoi], None]] = {
+_TRANSITIONS: dict[tuple[str, str], Callable[[Session, Tournoi], list[espace_service.Revocation] | None]] = {
     ("INSCRIPTIONS_OUVERTES", "INSCRIPTIONS_CLOSES"): _clore_inscriptions,
     ("INSCRIPTIONS_CLOSES", "EN_COURS"): _lancer,
     ("EN_COURS", "TERMINE"): _terminer,
@@ -188,6 +206,8 @@ _TRANSITIONS: dict[tuple[str, str], Callable[[Session, Tournoi], None]] = {
 # --- Outils partagés avec rencontre_service -----------------------------------
 
 def tournoi_ou_404(session: Session, id_tournoi: int, verrouiller: bool = False) -> Tournoi:
+    """Le tournoi d'identifiant donné ; 404 s'il n'existe pas. `verrouiller` pose un verrou jusqu'à la fin de la transaction.
+    """
     tournoi = tournoi_repository.par_id(session, id_tournoi, verrouiller)
     if tournoi is None:
         raise NotFound("Tournoi introuvable.")
@@ -195,6 +215,7 @@ def tournoi_ou_404(session: Session, id_tournoi: int, verrouiller: bool = False)
 
 
 def arbre_de(session: Session, id_tournoi: int, equipes_par_id: dict[int, Equipe]) -> arbre_du_tournoi.Arbre:
+    """L'arbre (logique pure) d'un tournoi, avec le statut courant de chaque équipe."""
     return arbre_du_tournoi.Arbre(
         rencontre_repository.du_tournoi(session, id_tournoi),
         {id_equipe: equipe.statut_equipe for id_equipe, equipe in equipes_par_id.items()},

@@ -17,6 +17,8 @@ ROUTES_PUBLIQUES = {
     ("GET", "/api/tournois/<int:id_tournoi>/equipes"),
     ("GET", "/api/tournois/<int:id_tournoi>/arbre"),
     ("GET", "/api/jeux"),
+    ("GET", "/api/jeux/<int:id_jeu>/roles"),
+    ("GET", "/api/equipes/<int:id_equipe>"),
 }
 
 

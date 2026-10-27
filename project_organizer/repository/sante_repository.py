@@ -32,4 +32,5 @@ def compter_tables(session: Session) -> int:
 
 
 def version_postgres(session: Session) -> str:
+    """La version du serveur PostgreSQL."""
     return session.execute(text("SHOW server_version")).scalar_one()

@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class ApiError(Exception):
+    """Erreur métier : porte le code HTTP et le libellé du format d'erreur du contrat (§1.1)."""
     code = 500
     erreur = "Internal Server Error"
 
@@ -34,31 +35,37 @@ class ApiError(Exception):
 
 
 class BadRequest(ApiError):
+    """400 : requête invalide."""
     code = 400
     erreur = "Bad Request"
 
 
 class Unauthorized(ApiError):
+    """401 : pas de session valable."""
     code = 401
     erreur = "Unauthorized"
 
 
 class Forbidden(ApiError):
+    """403 : la ressource est publique mais l'action est interdite."""
     code = 403
     erreur = "Forbidden"
 
 
 class NotFound(ApiError):
+    """404 : ressource inexistante, ou invisible pour l'appelant."""
     code = 404
     erreur = "Not Found"
 
 
 class Conflict(ApiError):
+    """409 : conflit avec l'état de la ressource (transition impossible, doublon)."""
     code = 409
     erreur = "Conflict"
 
 
 class UnprocessableEntity(ApiError):
+    """422 : requête bien formée mais contraire à une règle métier."""
     code = 422
     erreur = "Unprocessable Entity"
 

@@ -1,3 +1,5 @@
+"""Modèle de la table tournoi : un tournoi, son jeu, son état et les dates de ses étapes."""
+
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, String
@@ -11,6 +13,7 @@ STATUTS_TOURNOI = ("INSCRIPTIONS_OUVERTES", "INSCRIPTIONS_CLOSES", "EN_COURS", "
 
 
 class Tournoi(Base):
+    """Table tournoi : un tournoi, son jeu, son état et les dates de ses étapes."""
     __tablename__ = "tournoi"
 
     id_tournoi: Mapped[int] = mapped_column(BigInteger, primary_key=True)
