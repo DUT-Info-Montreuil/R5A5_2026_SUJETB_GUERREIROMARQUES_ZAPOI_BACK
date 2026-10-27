@@ -41,10 +41,17 @@ EQUIPES = ["Hiboux", "Nova", "Zenith", "Nébula", "Orage", "Kraken", "Phénix", 
 
 JEUX = {
     "League of Legends": ["Top", "Jungle", "Mid", "ADC", "Support"],
-    "Overwatch 2": ["Tank", "Degats 1", "Degats 2", "Soutien 1", "Soutien 2"],
-    "Valorant": ["Duelliste", "Initiateur", "Controleur", "Sentinelle", "Polyvalent"],
-    "Counter-Strike 2": ["Entry", "AWPer", "Lurker", "Support", "Leader"],
-    "Dota 2": ["Carry", "Mid", "Offlane", "Soutien 4", "Soutien 5"],
+    "Overwatch 2": ["Tank 1", "Tank 2", "DPS 1", "DPS 2", "Heal 1", "Heal 2"],
+    "Valorant": ["Duelliste", "Initiateur", "Contrôleur", "Sentinelle", "Flex"],
+    "Counter-Strike 2": ["Entry", "Support", "Lurker", "AWPer", "IGL"],
+    "Dota 2": ["Carry (pos. 1)", "Mid (pos. 2)", "Offlane (pos. 3)", "Soutien (pos. 4)", "Soutien complet (pos. 5)"],
+    "Rocket League": ["Attaquant", "Milieu", "Défenseur"],
+    "Fortnite": ["Meneur", "Fragger", "Constructeur", "Soutien"],
+    "PUBG": ["Meneur", "Fragger", "Sniper", "Soutien"],
+    "Minecraft": ["Bâtisseur", "Attaquant", "Collecteur", "Défenseur"],
+    "EA Sports FC": ["Joueur"],
+    "Pokémon": ["Dresseur"],
+    "Échecs": ["Joueur"],
 }
 NOMS_DE_TOURNOIS = [
     "Coupe Inter-IUT — Automne 2026",
@@ -54,6 +61,14 @@ NOMS_DE_TOURNOIS = [
     "Dota 2 Découverte",
     "Coupe Inter-IUT — Printemps 2026",
 ]
+# Des tournois aux inscriptions ouvertes, sans équipe : ils montrent le catalogue et laissent tout à faire.
+TOURNOIS_A_REMPLIR = [
+    ("Rocket League Cup — IUT", "Rocket League", 8, 4),
+    ("Bed Wars des IUT", "Minecraft", 8, 3),
+    ("EA FC — Derby des IUT", "EA Sports FC", 16, 3),
+    ("Blitz d'échecs inter-IUT", "Échecs", 16, 1),
+]
+TOUS_LES_TOURNOIS = NOMS_DE_TOURNOIS + [nom for nom, *_ in TOURNOIS_A_REMPLIR]
 
 
 class Demo:
@@ -91,7 +106,7 @@ class Demo:
         with database.session() as session:
             for nom, postes in JEUX.items():
                 session.execute(
-                    text("INSERT INTO jeu (nom_jeu, joueurs_par_equipe) VALUES (:n, 5) ON CONFLICT (nom_jeu) DO NOTHING"), {"n": nom}
+                    text("INSERT INTO jeu (nom_jeu, joueurs_par_equipe) VALUES (:n, :k) ON CONFLICT (nom_jeu) DO NOTHING"), {"n": nom, "k": len(postes)}
                 )
                 id_jeu = session.execute(text("SELECT id_jeu FROM jeu WHERE nom_jeu = :n"), {"n": nom}).scalar_one()
                 for poste in postes:
@@ -240,6 +255,10 @@ class Demo:
             self.jouer(t, None)
             self.changer_statut(t, "TERMINE")
             faits.append(NOMS_DE_TOURNOIS[5])
+        for nom, jeu, nombre_equipes, age in TOURNOIS_A_REMPLIR:
+            if not self.tournoi_existe(nom):
+                self.creer_tournoi(nom, jeu, jeux, nombre_equipes, age)
+                faits.append(nom)
         return faits
 
     def recapitulatif_du_tournoi_en_cours(self) -> str:
@@ -257,7 +276,7 @@ class Demo:
 
     def reinitialiser(self) -> None:
         with database.session() as session:
-            session.execute(text("DELETE FROM tournoi WHERE nom_tournoi = ANY(:noms)"), {"noms": NOMS_DE_TOURNOIS})
+            session.execute(text("DELETE FROM tournoi WHERE nom_tournoi = ANY(:noms)"), {"noms": TOUS_LES_TOURNOIS})
 
 
 def main() -> None:
@@ -292,6 +311,7 @@ OÙ ESSAYER QUOI — les autres tournois
   Inscriptions ouvertes (créer / rejoindre)   « {NOMS_DE_TOURNOIS[2]} », « {NOMS_DE_TOURNOIS[3]} », « {NOMS_DE_TOURNOIS[4]} »
   Inscriptions closes (l'administrateur peut le lancer)   « {NOMS_DE_TOURNOIS[1]} »
   Tournoi terminé                          « {NOMS_DE_TOURNOIS[5]} »
+  Inscriptions ouvertes, sans équipe       {", ".join(f"« {nom} »" for nom, *_ in TOURNOIS_A_REMPLIR)}
 
 Pour tester deux profils en même temps : deux fenêtres de navigation privée (sinon elles partagent le même cookie).
 """)

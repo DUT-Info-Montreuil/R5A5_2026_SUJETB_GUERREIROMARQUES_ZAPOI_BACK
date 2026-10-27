@@ -218,6 +218,32 @@ def modifier_membre(
     return equipe, membres
 
 
+def dissoudre(id_equipe: int, appelant: Utilisateur) -> None:
+    """DELETE /api/equipes/{id} : le capitaine se désiste, l'équipe est close (B-06).
+
+    Réservé au capitaine, tant que les inscriptions sont ouvertes : après la
+    clôture, une équipe est dans l'arbre et ne disparaît plus. Les membres, les
+    demandes en attente et les messages partent avec elle ; la place est libérée
+    pour une autre équipe, et chaque membre voit son espace d'échange se fermer.
+    """
+    with database.session() as session:
+        equipe = equipe_ou_404(session, id_equipe)
+        tournoi = tournoi_ou_404(session, equipe.id_tournoi, verrouiller=True)
+
+        if not est_capitaine(session, id_equipe, appelant.id_utilisateur):
+            raise Forbidden("Seul le capitaine peut dissoudre son équipe.")
+        exiger_inscriptions_ouvertes(tournoi)
+
+        revocation = espace_service.revocation_de_l_equipe(session, id_equipe, "dissolution")
+        equipe_repository.supprimer(session, id_equipe)
+
+    logger.info(
+        "Équipe dissoute par son capitaine",
+        extra={"contexte": {"idEquipe": id_equipe, "idTournoi": tournoi.id_tournoi, "idAppelant": appelant.id_utilisateur}},
+    )
+    espace_service.notifier([revocation])
+
+
 def retirer_membre(id_equipe: int, id_membre: int, appelant: Utilisateur) -> None:
     """DELETE …/membres/{id} : le capitaine exclut (B-09) ou le joueur part de lui-même (B-06)."""
     with database.session() as session:

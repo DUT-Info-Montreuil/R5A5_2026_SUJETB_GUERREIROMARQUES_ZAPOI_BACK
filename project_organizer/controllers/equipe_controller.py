@@ -103,6 +103,21 @@ def modifier_membre(id_equipe: int, id_utilisateur: int):
     return jsonify(equipe_vers_dto(equipe, membres).vers_json()), 200
 
 
+@equipe_bp.delete("/api/equipes/<int:id_equipe>")
+@spec.validate(
+    resp=Response(HTTP_204=None, HTTP_401=ErreurDto, HTTP_403=ErreurDto, HTTP_404=ErreurDto, HTTP_409=ErreurDto),
+    tags=["Équipes"],
+)
+def dissoudre_equipe(id_equipe: int):
+    """Se désister : le capitaine dissout son équipe (B-06).
+
+    403 si l'appelant n'est pas le capitaine ; 409 si les inscriptions sont
+    closes. Les membres perdent l'accès à l'espace d'échange (motif `dissolution`).
+    """
+    equipe_service.dissoudre(id_equipe, utilisateur_courant())
+    return ReponseFlask(status=204)
+
+
 @equipe_bp.delete("/api/equipes/<int:id_equipe>/membres/<int:id_utilisateur>")
 @spec.validate(
     resp=Response(

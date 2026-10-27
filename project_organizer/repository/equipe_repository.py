@@ -1,6 +1,6 @@
 """Accès aux équipes."""
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import Composer, Equipe, Tournoi
@@ -42,6 +42,11 @@ def ajouter(session: Session, id_tournoi: int, nom_equipe: str) -> Equipe:
     # Recharge cree_le, posé par la base.
     session.refresh(equipe)
     return equipe
+
+def supprimer(session: Session, id_equipe: int) -> None:
+    """Supprime l'équipe ; la base retire avec elle ses membres, ses demandes et ses messages (ON DELETE CASCADE)."""
+    session.execute(delete(Equipe).where(Equipe.id_equipe == id_equipe))
+
 
 def de_l_utilisateur(session: Session, id_utilisateur: int) -> list[tuple[Equipe, bool, Tournoi]]:
     """Les équipes d'un joueur, avec son rôle de capitaine et leur tournoi, les plus récentes d'abord."""

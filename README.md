@@ -162,7 +162,9 @@ Pour essayer le site avec des comptes déjà prêts (**local uniquement**) :
 python scripts/donnees_demo.py
 ```
 
-Le script crée un administrateur, 40 joueurs et six tournois à des étapes différentes (inscriptions ouvertes, closes, en cours, terminé…), puis affiche les identifiants et quoi essayer avec quel compte. Il est rejouable ; `--reinitialiser` supprime les tournois de démonstration puis les recrée. Il refuse de tourner si `COOKIE_SECURE=true` (ses mots de passe sont publics).
+Le script crée un administrateur, 40 joueurs et dix tournois (six à des étapes différentes — inscriptions ouvertes, closes, en cours, terminé… — et quatre sans équipe, pour montrer le catalogue de jeux), puis affiche les identifiants et quoi essayer avec quel compte. Il est rejouable ; `--reinitialiser` supprime les tournois de démonstration puis les recrée. Il refuse de tourner si `COOKIE_SECURE=true` (ses mots de passe sont publics).
+
+Le catalogue compte **douze jeux** avec leurs vrais postes (top, jungle, mid, ADC et support pour League of Legends ; tank, DPS et heal à six pour Overwatch 2 ; positions 1 à 5 pour Dota 2 ; un seul poste pour les duels comme les échecs). Il est défini dans `sql/schema_R5A5_sujetB.sql`, section 10, donc créé avec la base : sur une base existante, `docker compose down -v && docker compose up -d`.
 
 | Profil | Comment l'obtenir |
 |---|---|
