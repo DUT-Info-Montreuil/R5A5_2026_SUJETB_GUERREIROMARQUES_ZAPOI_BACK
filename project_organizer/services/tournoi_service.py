@@ -135,7 +135,18 @@ def _clore_inscriptions(session: Session, tournoi: Tournoi) -> None:
         rencontres.append(rencontre)
 
     arbre_du_tournoi.Arbre(rencontres, {id_equipe: "EN_LICE" for id_equipe in inscrites}).actualiser_statuts()
-    tournoi.inscriptions_closes_le = func.now()
+    tournoi.inscriptions_closes_le = _pas_avant(Tournoi.cree_le)
+
+
+def _pas_avant(etape_precedente):
+    """L'heure de la base, sans jamais précéder l'étape d'avant.
+
+    La contrainte ck_tournoi_chronologie exige des dates qui se suivent. Si
+    l'horloge de la machine qui héberge la base recule d'un instant (resynchronisation
+    d'une machine virtuelle Docker au réveil, par exemple), `now()` seul violerait la
+    contrainte et la transition échouerait en 500 : on reste alors à la date précédente.
+    """
+    return func.greatest(func.now(), etape_precedente)
 
 
 def _lancer(session: Session, tournoi: Tournoi) -> list[espace_service.Revocation]:
@@ -182,7 +193,7 @@ def _lancer(session: Session, tournoi: Tournoi) -> list[espace_service.Revocatio
             "Équipes forfait au lancement",
             extra={"contexte": {"idTournoi": tournoi.id_tournoi, "idEquipes": sorted(incompletes)}},
         )
-    tournoi.demarre_le = func.now()
+    tournoi.demarre_le = _pas_avant(Tournoi.inscriptions_closes_le)
     return [espace_service.revocation_de_l_equipe(session, id_equipe, "elimination") for id_equipe in sorted(incompletes)]
 
 
@@ -193,7 +204,7 @@ def _terminer(session: Session, tournoi: Tournoi) -> None:
     if finale is None or finale.statut_rencontre != "TERMINE":
         raise Conflict("La finale n'a pas encore de vainqueur.")
     equipes_par_id[finale.id_vainqueur].statut_equipe = "VAINQUEUR"
-    tournoi.termine_le = func.now()
+    tournoi.termine_le = _pas_avant(Tournoi.demarre_le)
 
 
 _TRANSITIONS: dict[tuple[str, str], Callable[[Session, Tournoi], list[espace_service.Revocation] | None]] = {

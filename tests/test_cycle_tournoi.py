@@ -440,3 +440,23 @@ def test_terminer_un_tournoi_sans_arbre_donne_409_et_non_500(admin, id_jeu):
         )
 
     assert _statut(admin, id_tournoi, "TERMINE").status_code == 409
+
+
+def test_une_horloge_qui_recule_ne_casse_pas_la_chronologie(fabrique_clients, jeu_a_postes):
+    """Machine virtuelle resynchronisée : la base voit `now()` avant `cree_le`. La clôture réussit quand même."""
+    from sqlalchemy import text
+
+    from project_organizer.utils import database
+
+    from .outils_equipes import creer_equipe, monter_decor
+
+    decor = monter_decor(fabrique_clients, jeu_a_postes)
+    assert creer_equipe(decor.joueur, decor.id_tournoi, "Les Bleus", decor.postes[0]).status_code == 201
+    with database.session() as session:
+        session.execute(
+            text("UPDATE tournoi SET cree_le = now() + interval '1 hour' WHERE id_tournoi = :t"), {"t": decor.id_tournoi}
+        )
+
+    reponse = decor.admin.patch(f"/api/tournois/{decor.id_tournoi}", json={"statutTournoi": "INSCRIPTIONS_CLOSES"})
+
+    assert reponse.status_code == 200, reponse.get_json()

@@ -21,7 +21,7 @@ demande_bp = Blueprint("demandes", __name__)
 @demande_bp.post("/api/equipes/<int:id_equipe>/demandes")
 @spec.validate(
     resp=Response(
-        HTTP_201=DemandeDto, HTTP_401=ErreurDto, HTTP_404=ErreurDto,
+        HTTP_201=DemandeDto, HTTP_401=ErreurDto, HTTP_403=ErreurDto, HTTP_404=ErreurDto,
         HTTP_409=ErreurDto, HTTP_422=ErreurDto,
     ),
     tags=["Demandes d'adhésion"],
@@ -29,7 +29,8 @@ demande_bp = Blueprint("demandes", __name__)
 def creer_demande(id_equipe: int):
     """Demander à rejoindre une équipe (B-06). Joueur connecté.
 
-    409 si les inscriptions sont closes ou si une demande est déjà en attente ;
+    403 si l'appelant est administrateur ; 409 si les inscriptions sont closes
+    ou si une demande est déjà en attente ;
     422 si le joueur a déjà une équipe dans ce tournoi (B-07) ou si l'équipe
     est complète. Un joueur refusé peut redemander.
     """

@@ -1,12 +1,13 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 10 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 11 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
 v6 : précisions sur les équipes, les demandes et les membres, issues de leur implémentation (§4).
 v7 : espace d'échange et `GET /api/moi/…` (§4, §6), authentification du socket et abonnement `equipe:suivre` (§7).
 v8 : règle de lancement « poste obligatoire » (§3), limites du temps réel et route de supervision (§7).
 v9 : la déconnexion révoque les jetons (§2.3) et coupe les sockets ouverts (§7), compteur `coupuresPourRevocation` (§7), cache HTTP par `ETag` (§1).
 v10 : désistement du capitaine, `DELETE /api/equipes/{id}` (§4) ; motif `dissolution` de `equipe:acces-revoque` (§7).
+v11 : un administrateur ne participe pas aux tournois — `403` sur la création d'une équipe et sur une demande d'adhésion (§4).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -350,8 +351,11 @@ Précisions (v5) :
 Le créateur devient capitaine **et** premier membre, dans la même transaction
 (B-05). `idRole` est son poste de jeu.
 
+- `403` si l'appelant est administrateur (v11) : il organise le tournoi et en saisit les résultats, il n'y joue pas ; pour participer, il utilise un compte joueur.
 - `409` si les inscriptions sont closes, ou si le nom est déjà pris dans ce tournoi.
 - `422` si le joueur appartient déjà à une équipe de ce tournoi (B-07).
+
+Pour un jeu **en solo** (`joueursParEquipe` = 1), l'inscription est une équipe d'un seul joueur : le front la nomme d'après le pseudo et l'API n'a rien de particulier à faire.
 
 ### `GET /api/equipes/{id}`
 
@@ -429,7 +433,7 @@ messages.
   `Demande` : `{ idDemande, idEquipe, idUtilisateur, pseudo, statutDemande, creeLe, traiteLe? }`.
   `role` est omis tant qu'aucun poste n'est attribué.
 - **Création** — `409` aussi si le tournoi est complet. `422` si `idRole` n'est pas un poste du jeu du tournoi. Un nom d'équipe est unique par tournoi, sans tenir compte de la casse.
-- **`POST /api/equipes/{id}/demandes`** — pas de corps. `409` si une demande est déjà en attente ou si les inscriptions sont closes ; `422` si le joueur a déjà une équipe dans ce tournoi, ou si l'équipe est complète.
+- **`POST /api/equipes/{id}/demandes`** — pas de corps. `403` pour un administrateur (v11). `409` si une demande est déjà en attente ou si les inscriptions sont closes ; `422` si le joueur a déjà une équipe dans ce tournoi, ou si l'équipe est complète.
 - **`GET /api/equipes/{id}/demandes`** — paramètre facultatif `statut` ; sans filtre, tout l'historique. `404` pour quiconque n'est pas capitaine de l'équipe, **administrateur compris**.
 - **`PATCH /api/demandes/{id}`** — `statutDemande` vaut `ACCEPTEE` ou `REFUSEE`. `404` si l'appelant n'est pas le capitaine de l'équipe. L'acceptation ajoute le joueur **sans poste**.
 - **`PATCH /api/equipes/{id}`** — `statutEquipe` n'accepte que `DISQUALIFIEE`. `403` si l'appelant n'est ni capitaine ni administrateur ; `400` si un champ est hors de la liste de son rôle. Disqualification : `409` si le tournoi n'est pas `EN_COURS` ou si l'équipe n'est plus en lice.

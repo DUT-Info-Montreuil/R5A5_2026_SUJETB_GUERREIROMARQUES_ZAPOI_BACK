@@ -65,10 +65,24 @@ NOMS_DE_TOURNOIS = [
 TOURNOIS_A_REMPLIR = [
     ("Rocket League Cup — IUT", "Rocket League", 8, 4),
     ("Bed Wars des IUT", "Minecraft", 8, 3),
-    ("EA FC — Derby des IUT", "EA Sports FC", 16, 3),
-    ("Blitz d'échecs inter-IUT", "Échecs", 16, 1),
 ]
-TOUS_LES_TOURNOIS = NOMS_DE_TOURNOIS + [nom for nom, *_ in TOURNOIS_A_REMPLIR]
+# Des tournois en solo : chaque inscrit est un joueur (son équipe porte son pseudo), numéros des joueurs inscrits.
+TOURNOIS_SOLO = [
+    ("EA FC — Derby des IUT", "EA Sports FC", 16, 3, [3, 8, 14, 19, 25, 31, 37]),
+    ("Blitz d'échecs inter-IUT", "Échecs", 16, 1, [2, 5, 9, 12, 17, 22]),
+]
+# Des tournois plus anciens ou en cours, pour que le site ait un passé et un présent : (nom, jeu, ancienneté en jours, décalage, matchs joués ou None pour tout jouer).
+TOURNOIS_SUPPLEMENTAIRES = [
+    ("Valorant Spring Cup", "Valorant", 120, 10, None),
+    ("Rentrée CS2 — Open IUT", "Counter-Strike 2", 70, 15, None),
+    ("Dota 2 — Ligue du jeudi", "Dota 2", 6, 25, 4),
+]
+TOUS_LES_TOURNOIS = (
+    NOMS_DE_TOURNOIS
+    + [nom for nom, *_ in TOURNOIS_A_REMPLIR]
+    + [nom for nom, *_ in TOURNOIS_SOLO]
+    + [nom for nom, *_ in TOURNOIS_SUPPLEMENTAIRES]
+)
 
 
 class Demo:
@@ -259,6 +273,22 @@ class Demo:
             if not self.tournoi_existe(nom):
                 self.creer_tournoi(nom, jeu, jeux, nombre_equipes, age)
                 faits.append(nom)
+        for nom, jeu, nombre_equipes, age, joueurs in TOURNOIS_SOLO:
+            if not self.tournoi_existe(nom):
+                t = self.creer_tournoi(nom, jeu, jeux, nombre_equipes, age)
+                for numero in joueurs:
+                    # Un jeu en solo : l'équipe d'un joueur porte son pseudo (comme le fait le site).
+                    self.monter_equipe(t, f"joueur{numero:02d}", [numero], jeux[jeu][1])
+                faits.append(nom)
+        for nom, jeu, age, decalage, matchs in TOURNOIS_SUPPLEMENTAIRES:
+            if not self.tournoi_existe(nom):
+                t = self.creer_tournoi(nom, jeu, jeux, 8, age)
+                self.huit_equipes(t, jeux[jeu][1], decalage=decalage)
+                self.changer_statut(t, "INSCRIPTIONS_CLOSES"); self.changer_statut(t, "EN_COURS")
+                self.jouer(t, matchs)
+                if matchs is None:
+                    self.changer_statut(t, "TERMINE")
+                faits.append(nom)
         return faits
 
     def recapitulatif_du_tournoi_en_cours(self) -> str:
@@ -312,6 +342,8 @@ OÙ ESSAYER QUOI — les autres tournois
   Inscriptions closes (l'administrateur peut le lancer)   « {NOMS_DE_TOURNOIS[1]} »
   Tournoi terminé                          « {NOMS_DE_TOURNOIS[5]} »
   Inscriptions ouvertes, sans équipe       {", ".join(f"« {nom} »" for nom, *_ in TOURNOIS_A_REMPLIR)}
+  Tournois en solo (inscrits = joueurs)    {", ".join(f"« {nom} »" for nom, *_ in TOURNOIS_SOLO)}
+  Palmarès et tournoi en cours en plus     {", ".join(f"« {nom} »" for nom, *_ in TOURNOIS_SUPPLEMENTAIRES)}
 
 Pour tester deux profils en même temps : deux fenêtres de navigation privée (sinon elles partagent le même cookie).
 """)

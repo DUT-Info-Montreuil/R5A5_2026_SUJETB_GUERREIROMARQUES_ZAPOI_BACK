@@ -2,7 +2,7 @@
 
 Le sujet demande, pour **chaque règle d'accès**, « le test qui montre qu'un utilisateur non autorisé se fait bien refuser l'accès — pas seulement que celui qui a le droit y arrive ». Ce tableau relie chaque exigence à ses tests. Il est **vérifié automatiquement** : chaque nom de test cité existe dans `tests/` (le fichier est entre parenthèses).
 
-La suite complète compte **279 tests**. La lancer : `python -m pytest` (la base doit tourner). Un test précis : `python -m pytest -k test_un_joueur_exclu_perd_l_acces_tout_de_suite`.
+La suite complète compte **284 tests**. La lancer : `python -m pytest` (la base doit tourner). Un test précis : `python -m pytest -k test_un_joueur_exclu_perd_l_acces_tout_de_suite`.
 
 ## Par exigence du sujet
 
@@ -46,6 +46,7 @@ B-12 (arbre généré à la clôture) n'a pas de règle d'accès propre : c'est 
 | Socket : une connexion dont le jeton est révoqué est coupée par la surveillance | `test_une_connexion_temps_reel_est_coupee_quand_son_jeton_est_revoque` *(revocation)*<br>`test_la_boucle_de_surveillance_ferme_les_connexions_expirees_ET_revoquees` *(revocation)* |
 | Cache HTTP : lectures publiques revalidées (ETag), réponses privées, écritures et erreurs jamais gardées | `test_une_lecture_publique_porte_un_etag_et_se_revalide` *(cache_http)*<br>`test_les_reponses_privees_ne_sont_jamais_gardees` *(cache_http)*<br>`test_les_ecritures_ne_sont_jamais_gardees` *(cache_http)*<br>`test_les_erreurs_ne_sont_jamais_gardees` *(cache_http)* |
 | Clé secrète faible, modèle ou absente : l'API refuse de démarrer | `test_une_cle_secrete_faible_ou_celle_du_modele_empeche_de_demarrer` *(complements_securite)*<br>`test_une_cle_secrete_absente_empeche_de_demarrer` *(complements_securite)* |
+| Un administrateur ne participe pas : ni création d'équipe ni demande d'adhésion (il saisit les résultats : juge et partie) | `test_un_administrateur_ne_cree_pas_d_equipe` *(administrateur_joueur)*<br>`test_un_administrateur_ne_demande_pas_a_rejoindre_une_equipe` *(administrateur_joueur)*<br>`test_un_joueur_garde_le_droit_de_creer_et_de_demander` *(administrateur_joueur)* |
 | Chat : débit plafonné par utilisateur, texte non interprété | `test_le_debit_des_messages_est_plafonne_par_utilisateur` *(messages)*<br>`test_le_texte_est_conserve_tel_quel_sans_html_interprete` *(messages)* |
 | Les refus d'accès laissent une trace WARNING, sans e-mail ni contenu de message | `test_un_intrus_qui_lit_l_espace_d_une_equipe_laisse_une_trace` *(complements_securite)*<br>`test_les_demandes_consultees_par_un_non_capitaine_laissent_une_trace` *(complements_securite)*<br>`test_les_traces_de_refus_ne_contiennent_ni_adresse_e_mail_ni_message` *(complements_securite)* |
 | Derrière un proxy : l'adresse du client est lue seulement d'un proxy de confiance | `test_derriere_un_proxy_de_confiance_l_adresse_est_celle_du_client` *(complements_securite)*<br>`test_sans_proxy_de_confiance_l_en_tete_est_ignore` *(complements_securite)* |

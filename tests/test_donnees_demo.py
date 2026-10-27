@@ -57,11 +57,14 @@ def test_les_postes_de_la_demonstration_sont_ceux_du_catalogue_de_jeux():
         en_base.setdefault(nom, []).append(role)
     taille = {nom: k for nom, k, _ in lignes}
 
-    assert en_base, "le catalogue de jeux est vide"
+    presents = [nom for nom in module.JEUX if nom in en_base]
+    if len(presents) < len(module.JEUX):
+        pytest.skip(
+            "Base créée avant le catalogue de douze jeux : la recréer avec « docker compose down -v && docker compose up -d »."
+        )
     for nom, postes in module.JEUX.items():
-        if nom in en_base:  # une base créée avant le catalogue n'a pas tous les jeux
-            assert sorted(en_base[nom]) == sorted(postes), nom
-            assert taille[nom] == len(postes), nom
+        assert sorted(en_base[nom]) == sorted(postes), nom
+        assert taille[nom] == len(postes), nom
 
 
 def test_chaque_jeu_du_catalogue_a_autant_de_postes_que_de_joueurs_par_equipe():

@@ -22,7 +22,7 @@ equipe_bp = Blueprint("equipes", __name__)
 @spec.validate(
     body=CreationEquipeDto,
     resp=Response(
-        HTTP_201=EquipeDto, HTTP_400=ErreurDto, HTTP_401=ErreurDto,
+        HTTP_201=EquipeDto, HTTP_400=ErreurDto, HTTP_401=ErreurDto, HTTP_403=ErreurDto,
         HTTP_404=ErreurDto, HTTP_409=ErreurDto, HTTP_422=ErreurDto,
     ),
     tags=["Équipes"],
@@ -32,6 +32,7 @@ def creer_equipe(id_tournoi: int):
 
     idRole est le poste du créateur : il doit appartenir au jeu du tournoi.
 
+    403 si l'appelant est administrateur (il organise, il ne joue pas) ;
     409 si les inscriptions sont closes, si le nom est déjà pris dans ce
     tournoi ou si le tournoi est complet ; 422 si le joueur a déjà une équipe
     dans ce tournoi (B-07) ou si le poste n'existe pas pour ce jeu.
