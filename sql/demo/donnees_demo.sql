@@ -1,9 +1,17 @@
 -- =============================================================================
 --  Données de démonstration — développement uniquement
 --
---  À jouer À LA MAIN, une fois, sur une base déjà créée (voir README §5).
---  Ce script n'est PAS dans l'initialisation du conteneur : la base de test
---  reste vide par défaut.
+--  À jouer À LA MAIN, sur une base déjà créée :
+--
+--      Get-Content sql\demo\donnees_demo.sql | docker compose exec -T db psql -U r5a5 -d tournois
+--
+--  Ce script vit dans sql/demo/ et non dans sql/ : PostgreSQL ne joue à la
+--  création du conteneur que les fichiers situés directement dans sql/, par
+--  ordre alphabétique. Dans sql/, celui-ci passerait AVANT le schéma et ferait
+--  échouer l'initialisation de la base.
+--
+--  Rejouable sans risque : les données déjà présentes ne sont pas dupliquées,
+--  et les postes des jeux sont ajoutés même si le reste existait déjà.
 --
 --  Compte administrateur créé :
 --      e-mail        admin@agon-cup.fr
@@ -65,3 +73,35 @@ BEGIN
     RAISE NOTICE 'Données de démonstration ajoutées.';
 END
 $$;
+
+
+-- -----------------------------------------------------------------------------
+--  Postes des jeux de démonstration
+--
+--  Hors du bloc ci-dessus pour que les bases créées avant l'ajout des postes les
+--  reçoivent aussi. Sans poste, personne ne peut créer d'équipe pour ces jeux :
+--  la création d'équipe exige un poste du jeu (B-05, B-08).
+--  League of Legends et Overwatch 2 reçoivent les leurs du schéma.
+-- -----------------------------------------------------------------------------
+
+INSERT INTO role_jeu (id_jeu, libelle_role)
+SELECT j.id_jeu, r.libelle
+FROM jeu j
+JOIN (VALUES
+    ('Valorant',         'Duelliste'),
+    ('Valorant',         'Initiateur'),
+    ('Valorant',         'Controleur'),
+    ('Valorant',         'Sentinelle'),
+    ('Valorant',         'Polyvalent'),
+    ('Counter-Strike 2', 'Entry'),
+    ('Counter-Strike 2', 'AWPer'),
+    ('Counter-Strike 2', 'Lurker'),
+    ('Counter-Strike 2', 'Support'),
+    ('Counter-Strike 2', 'Leader'),
+    ('Dota 2',           'Carry'),
+    ('Dota 2',           'Mid'),
+    ('Dota 2',           'Offlane'),
+    ('Dota 2',           'Soutien 4'),
+    ('Dota 2',           'Soutien 5')
+) AS r(jeu, libelle) ON r.jeu = j.nom_jeu
+ON CONFLICT (id_jeu, libelle_role) DO NOTHING;
