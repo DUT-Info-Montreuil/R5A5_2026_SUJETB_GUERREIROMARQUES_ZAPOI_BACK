@@ -15,7 +15,7 @@ def ping(session: Session) -> bool:
 
 
 def compter_tables(session: Session) -> int:
-    """Nombre de tables du schéma public — 9 une fois sql/01_schema.sql appliqué.
+    """Nombre de tables du schéma public — 9 une fois sql/schema_R5A5_sujetB.sql appliqué.
 
     0 signifie presque toujours que la connexion pointe sur la mauvaise base
     (« postgres » au lieu de « tournois »).
