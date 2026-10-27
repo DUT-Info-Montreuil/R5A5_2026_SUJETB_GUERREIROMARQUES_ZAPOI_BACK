@@ -1,0 +1,93 @@
+# =============================================================================
+#  Agôn Cup — toute la pile en une commande : base, API, interface.
+#
+#  Les deux dépôts doivent être côte à côte (par défaut, le front est dans ../front) :
+#
+#      mkdir agon-cup && cd agon-cup
+#      git clone <dépôt back>  back
+#      git clone <dépôt front> front
+#      cd back
+#      docker compose -f docker-compose.complet.yml up --build
+#
+#  Puis ouvrir http://localhost:8080
+#
+#  Données de démonstration (administrateur, 40 joueurs, 6 tournois), dans un autre terminal :
+#      docker compose -f docker-compose.complet.yml --profile demo run --rm demo
+#
+#  Arrêter : Ctrl+C, puis `docker compose -f docker-compose.complet.yml down`.
+#  Repartir d'une base vide : ajouter -v à `down` (efface les données).
+#
+#  Réglages facultatifs (variables d'environnement ou fichier .env) :
+#      PORT_WEB          port de l'interface        (défaut 8080)
+#      CHEMIN_FRONT      dossier du dépôt front     (défaut ../front)
+#      FLASK_SECRET_KEY  clé de signature des sessions ; absente, une clé temporaire est
+#                        tirée au hasard à chaque démarrage (les sessions ne survivent pas)
+# =============================================================================
+
+name: agon-cup
+
+services:
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: r5a5
+      POSTGRES_PASSWORD: r5a5
+      POSTGRES_DB: tournois
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Joués dans l'ordre alphabétique, à la première création du volume seulement.
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U r5a5 -d tournois"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Pas de port publié : seule l'API parle à la base. Pour l'inspecter :
+    #   docker compose -f docker-compose.complet.yml exec db psql -U r5a5 -d tournois
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+pg8000://r5a5:r5a5@db:5432/tournois
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-}
+      # L'interface et l'API sont servies à la même adresse par nginx ; le navigateur envoie
+      # donc cette origine, qui doit être autorisée pour les appels et le temps réel.
+      CORS_ORIGINS: http://localhost:${PORT_WEB:-8080},http://127.0.0.1:${PORT_WEB:-8080}
+      # HTTP en local : un cookie « Secure » ne serait jamais renvoyé. À mettre à true derrière du HTTPS.
+      COOKIE_SECURE: "false"
+      # Un proxy (nginx) est devant l'API : lire l'adresse réelle du client dans X-Forwarded-For,
+      # sinon la limite de 5 connexions par minute serait partagée par tout le monde.
+      PROXIES_DE_CONFIANCE: "1"
+      LOG_FORMAT: json
+    restart: unless-stopped
+
+  front:
+    build:
+      context: ${CHEMIN_FRONT:-../front}
+      args:
+        # Vide : l'interface appelle la même adresse qu'elle (nginx transmet /api et /socket.io).
+        VITE_API_URL: ""
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${PORT_WEB:-8080}:80"
+    restart: unless-stopped
+
+  # Données de démonstration : `docker compose ... --profile demo run --rm demo`
+  demo:
+    build: .
+    profiles: ["demo"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+pg8000://r5a5:r5a5@db:5432/tournois
+    command: ["python", "scripts/donnees_demo.py"]
+
+volumes:
+  pgdata:
