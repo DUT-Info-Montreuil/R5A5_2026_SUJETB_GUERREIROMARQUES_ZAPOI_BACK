@@ -431,6 +431,20 @@ def test_la_composition_est_figee_apres_la_cloture(decor):
     assert len(lire_equipe(decor.capitaine, decor.id_equipe)["membres"]) == 2
 
 
+def test_le_nom_est_fige_apres_la_cloture(decor):
+    """Audit V-08, B-11 (contrat §10 : 409 sur toutes les écritures d'équipe après clôture).
+
+    Sans cela, une équipe éliminée ou gagnante changerait de nom dans l'arbre et le palmarès après coup.
+    """
+    equipe_creee(decor.autre, decor.id_tournoi, "Les Verts", decor.postes[0])
+    clore(decor.admin, decor.id_tournoi)
+
+    reponse = decor.capitaine.patch(f"/api/equipes/{decor.id_equipe}", json={"nomEquipe": "Les Pourpres"})
+
+    assert reponse.status_code == 409
+    assert lire_equipe(decor.capitaine, decor.id_equipe)["nomEquipe"] == "Les Rouges"
+
+
 def test_un_joueur_exclu_peut_creer_une_autre_equipe(decor):
     ajouter_membre(decor.capitaine, decor.joueur, decor.id_equipe)
     _retirer(decor.capitaine, decor.id_equipe, decor.joueur.id_utilisateur)
