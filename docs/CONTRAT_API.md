@@ -1,6 +1,6 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 11 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 13 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
 v6 : précisions sur les équipes, les demandes et les membres, issues de leur implémentation (§4).
 v7 : espace d'échange et `GET /api/moi/…` (§4, §6), authentification du socket et abonnement `equipe:suivre` (§7).
@@ -8,6 +8,7 @@ v8 : règle de lancement « poste obligatoire » (§3), limites du temps réel e
 v9 : la déconnexion révoque les jetons (§2.3) et coupe les sockets ouverts (§7), compteur `coupuresPourRevocation` (§7), cache HTTP par `ETag` (§1).
 v10 : désistement du capitaine, `DELETE /api/equipes/{id}` (§4) ; motif `dissolution` de `equipe:acces-revoque` (§7).
 v11 : un administrateur ne participe pas aux tournois — `403` sur la création d'une équipe et sur une demande d'adhésion (§4).
+v13 : l'inscription est limitée à 10 essais par heure et par adresse (§2) ; la connexion reste à 5 par minute.
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -142,7 +143,7 @@ règles.
 
 | Route | Accès | Réponse |
 |---|---|---|
-| `POST /api/auth/inscription` | Public, 5 essais par minute | `201 { utilisateur }` + cookie ; `409` pseudo ou e-mail pris ; `400` mot de passe de moins de 12 caractères |
+| `POST /api/auth/inscription` | Public, 10 essais par heure (v13) | `201 { utilisateur }` + cookie ; `409` pseudo ou e-mail pris ; `400` mot de passe de moins de 12 caractères ; `429` au-delà de la limite |
 | `POST /api/auth/connexion` | Public, 5 essais par minute | `200 { utilisateur }` + cookie ; `401` ; `429` au-delà de la limite |
 | `GET /api/auth/moi` | Authentifié | `200 Utilisateur` : sert au front à restaurer la session au chargement |
 | `POST /api/auth/deconnexion` | Public | `204`, cookie effacé **et jeton révoqué** (v9) : l'appel est publique pour qu'une session expirée puisse être fermée, et sans effet de révocation si le cookie est absent ou invalide |
@@ -675,7 +676,7 @@ mais ces règles-là restent du ressort de Flask.
 | 8 | Droits dans le jeton | Aucun — tout est relu en base à chaque requête (§2.2) |
 | 9 | Révocation | Colonne `utilisateur.version_jeton` comparée à chaque requête (§2.3) |
 | 10 | Transport du jeton (v4) | Cookie `HttpOnly` `SameSite=Lax`, plus d'en-tête `Authorization` (§2) |
-| 11 | Mots de passe (v4) | argon2, 12 caractères minimum, 5 essais par minute |
+| 11 | Mots de passe (v4, v13) | argon2, 12 caractères minimum, connexion 5 essais par minute, inscription 10 par heure |
 | 12 | Écritures du chat (v7) | En HTTP, jamais par le socket : le socket notifie, il ne crée pas |
 | 13 | Identité du socket (v7) | Lue dans le cookie à la connexion, gardée côté serveur, jamais dans un message |
 | 14 | Limites du temps réel (v8) | Heartbeat 20 s / 15 s, 4 096 octets, 30 événements par 10 s, fermeture à l'expiration du jeton |

@@ -196,8 +196,9 @@ Modèle à recopier : le trajet de `/health`, ou `tournoi_*` pour une ressource 
   la route de lecture, la route d'écriture **et** le gestionnaire WebSocket.
 - **Jamais de SQL construit par concaténation** : paramètres liés
   (`text(...)` avec `:nom`) ou ORM.
-- Mots de passe : argon2, 12 caractères minimum ; connexion/inscription limitées
-  à 5 par minute ; même message d'erreur que l'e-mail existe ou non.
+- Mots de passe : argon2, 12 caractères minimum ; connexion limitée à 5 par
+  minute, inscription à 10 par heure ; même message d'erreur que l'e-mail existe
+  ou non (à la connexion — l'inscription, elle, le révèle : `API.md` §7).
 
 ---
 

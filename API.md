@@ -85,7 +85,7 @@ Toute erreur imprévue renvoie un `500` générique : la trace reste dans les lo
 | 409 | Conflit avec l'**état** : transition impossible, rencontre déjà jouée, pseudo pris |
 | 413 | Corps de requête de plus de 1 Mio |
 | 422 | Violation d'une **règle métier** : vainqueur qui ne joue pas la rencontre, poste déjà occupé… |
-| 429 | Plus de 5 tentatives de connexion/inscription par minute et par adresse, ou plus de 30 messages de chat par minute et par utilisateur |
+| 429 | Plus de 5 tentatives de connexion par minute, ou de 10 inscriptions par heure, par adresse ; ou plus de 30 messages de chat par minute et par utilisateur |
 
 409 pour ce qui dépend du **cycle de vie** du tournoi, 422 pour ce qui dépend
 des **règles de composition ou de jeu**.
@@ -113,7 +113,7 @@ l'utilisateur en base : droits d'administrateur à jour, et jeton rejeté si
 
 | Route | Accès | Réponse |
 |---|---|---|
-| `POST /api/auth/inscription` ✅ | Public, 5/min | `201 { utilisateur }` + cookie · `400` (pseudo 3–50 caractères `A-Za-z0-9_.-`, mot de passe **12 caractères minimum**) · `409` pseudo ou e-mail pris · `429` |
+| `POST /api/auth/inscription` ✅ | Public, 10/h | `201 { utilisateur }` + cookie · `400` (pseudo 3–50 caractères `A-Za-z0-9_.-`, mot de passe **12 caractères minimum**) · `409` pseudo ou e-mail pris · `429` |
 | `POST /api/auth/connexion` ✅ | Public, 5/min | `200 { utilisateur }` + cookie · `401` **même message** que l'e-mail soit inconnu ou le mot de passe faux · `429` |
 | `GET /api/auth/moi` ✅ | Connecté | `200 Utilisateur` — sert au front à restaurer la session au chargement |
 | `POST /api/auth/deconnexion` ✅ | Public | `204`, cookie effacé **et jeton révoqué** : un jeton copié ne marche plus, les autres appareils du compte sont déconnectés aussi, les sockets ouverts sont coupés (≤ 30 s). Publique pour qu'une session expirée puisse se fermer ; sans cookie valide, rien n'est révoqué |
@@ -383,11 +383,17 @@ des oublis. Les justifications vont dans les fiches de décision.
    clients ont l'adresse du proxy et partagent la limite de 5 connexions par
    minute (`utils/proxy.py`).
 6. **Désistement limité aux inscriptions ouvertes** : une fois les inscriptions closes, une équipe est dans l'arbre et ne peut plus être dissoute ; l'administrateur dispose de la disqualification.
-7. **L'équipe victorieuse perd son espace d'échange** à la fin du tournoi
+7. **L'inscription révèle qu'une adresse e-mail est inscrite** (`409 « Cette
+   adresse e-mail est déjà utilisée. »`). Un message commun ne changerait rien :
+   avec un pseudo neuf, tout `409` trahit l'adresse. Seul un e-mail de
+   confirmation le cacherait, et la plateforme n'en envoie pas. Risque accepté,
+   ralenti par la limite de 10 inscriptions par heure et par adresse
+   (`LIMITE_INSCRIPTION`), contre 5 par minute pour la connexion.
+8. **L'équipe victorieuse perd son espace d'échange** à la fin du tournoi
    (statut `VAINQUEUR`, la règle d'accès demande `EN_LICE`).
-8. **Serveur de production non testé ici** (Nginx, arrêt progressif,
+9. **Serveur de production non testé ici** (Nginx, arrêt progressif,
    `proxy_read_timeout`) : voir la passation cloud.
-9. **Commentaires obsolètes** : `models/__init__.py` cite `sql/01_schema.sql`
+10. **Commentaires obsolètes** : `models/__init__.py` cite `sql/01_schema.sql`
    (le fichier s'appelle `sql/schema_R5A5_sujetB.sql`) ; un commentaire du
    schéma SQL (colonne `mot_de_passe_hash`) parle de `scrypt` alors que le code
    utilise argon2.

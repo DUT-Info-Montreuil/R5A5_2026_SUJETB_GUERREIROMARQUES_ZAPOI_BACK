@@ -39,7 +39,7 @@ def _reponse_session(utilisateur, statut: int):
 
 @auth_bp.post("/inscription")
 @publique
-@limiter.limit(Config.LIMITE_CONNEXION)
+@limiter.limit(Config.LIMITE_INSCRIPTION)
 @spec.validate(
     body=InscriptionDto,
     resp=Response(HTTP_201=ReponseAuthentificationDto, HTTP_409=ErreurDto, HTTP_429=ErreurDto),
@@ -49,7 +49,8 @@ def inscription():
     """Créer un compte et ouvrir la session.
 
     Le jeton est posé dans un cookie HttpOnly `jeton` ; il n'apparaît pas dans
-    le corps. Mot de passe : 12 caractères minimum.
+    le corps. Mot de passe : 12 caractères minimum. 429 au-delà de 10 essais par heure
+    depuis la même adresse.
     """
     donnees: InscriptionDto = request.context.body
     utilisateur = auth_service.inscrire(donnees.pseudo, donnees.email, donnees.mot_de_passe)
