@@ -200,6 +200,23 @@ def _demarrer_la_surveillance() -> None:
 
 # --- Abonnements -----------------------------------------------------------------------------
 
+def _entrer_dans_le_salon(salon: str) -> bool:
+    """Fait entrer la connexion dans un salon ; faux si elle s'est fermée entre-temps.
+
+    En mode threading, chaque événement est traité dans son propre thread : la
+    connexion peut se fermer (onglet fermé, coupure réseau) entre la réception de
+    l'abonnement et ce point. La bibliothèque lève alors ValueError ou KeyError
+    selon qu'il reste d'autres clients ou non. Ce n'est pas une erreur du
+    serveur : le client se réabonne de toute façon à sa reconnexion.
+    """
+    try:
+        join_room(salon)
+    except (ValueError, KeyError):
+        logger.info("Abonnement ignoré : connexion déjà fermée", extra={"contexte": {"idSocket": request.sid}})
+        return False
+    return True
+
+
 def _identifiant(donnees, cle: str) -> int | None:
     valeur = donnees.get(cle) if isinstance(donnees, dict) else None
     # bool est un int en Python : True ne doit pas désigner le tournoi 1.
@@ -214,8 +231,7 @@ def suivre_tournoi(donnees):
     id_tournoi = _identifiant(donnees, "idTournoi")
     if id_tournoi is None:
         return {"ok": False}
-    join_room(salon_tournoi(id_tournoi))
-    return {"ok": True}
+    return {"ok": _entrer_dans_le_salon(salon_tournoi(id_tournoi))}
 
 
 @socketio.on("tournoi:quitter")
@@ -246,8 +262,7 @@ def suivre_equipe(donnees):
     ):
         metriques.abonnement_refuse()
         return {"ok": False}
-    join_room(salon_equipe(id_equipe))
-    return {"ok": True}
+    return {"ok": _entrer_dans_le_salon(salon_equipe(id_equipe))}
 
 
 @socketio.on("equipe:quitter")
