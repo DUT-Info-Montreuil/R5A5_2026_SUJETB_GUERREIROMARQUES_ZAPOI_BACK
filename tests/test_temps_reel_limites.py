@@ -105,6 +105,40 @@ def test_le_plafond_se_mesure_sur_une_fenetre_de_temps(app, decor, monkeypatch):
     assert connexion.is_connected()
 
 
+# --- Abonnement traité après la fermeture de la connexion -------------------------------------------
+
+def _couper_avant_l_entree_dans_le_salon(monkeypatch):
+    """Reproduit la course réelle : en mode threading, la connexion peut se fermer
+    entre la réception d'un abonnement et l'entrée dans le salon."""
+    vrai_join_room = sockets.join_room
+
+    def join_room_apres_coupure(salon):
+        socketio.server.manager.basic_disconnect(sockets.request.sid, "/")
+        vrai_join_room(salon)
+
+    monkeypatch.setattr(sockets, "join_room", join_room_apres_coupure)
+
+
+@pytest.mark.parametrize("autre_client_connecte", [False, True])
+def test_un_abonnement_d_equipe_arrive_apres_la_fermeture_ne_plante_pas(app, decor, monkeypatch, autre_client_connecte):
+    # Avec ou sans autre client, la bibliothèque lève une erreur différente (ValueError ou KeyError).
+    if autre_client_connecte:
+        _connecter(app, decor.autre)
+    connexion = _connecter(app, decor.joueur)
+    _couper_avant_l_entree_dans_le_salon(monkeypatch)
+
+    reponse = connexion.emit("equipe:suivre", {"idEquipe": decor.id_equipe}, callback=True)
+
+    assert reponse == {"ok": False}
+
+
+def test_un_abonnement_de_tournoi_arrive_apres_la_fermeture_ne_plante_pas(app, monkeypatch):
+    connexion = _connecter(app, app.test_client())
+    _couper_avant_l_entree_dans_le_salon(monkeypatch)
+
+    assert _suivre(connexion) == {"ok": False}
+
+
 # --- Fermeture à l'expiration du jeton -------------------------------------------------------------
 
 def test_une_connexion_dont_le_jeton_a_expire_est_fermee(app, decor):
