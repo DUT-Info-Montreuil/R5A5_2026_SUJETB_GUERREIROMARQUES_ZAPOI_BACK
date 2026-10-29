@@ -36,6 +36,31 @@ def test_le_script_refuse_de_tourner_quand_le_cookie_est_securise(monkeypatch):
         assert session.execute(text("SELECT count(*) FROM utilisateur")).scalar_one() == avant
 
 
+def test_le_script_refuse_de_tourner_sur_une_base_avec_de_vrais_comptes(monkeypatch, inscrire):
+    """Audit V-02 : dans Docker, le conteneur du script ne voit pas COOKIE_SECURE ; la base, elle, ne ment pas."""
+    module = _charger_le_script()
+    inscrire("vrai_joueur")
+    monkeypatch.setattr(sys, "argv", ["donnees_demo.py"])
+    with database.session() as session:
+        avant = session.execute(text("SELECT count(*) FROM utilisateur")).scalar_one()
+
+    with pytest.raises(SystemExit) as sortie:
+        module.main()
+
+    assert "--forcer" in str(sortie.value)
+    with database.session() as session:
+        assert session.execute(text("SELECT count(*) FROM utilisateur")).scalar_one() == avant
+
+
+def test_les_comptes_de_demonstration_ne_comptent_pas_comme_de_vrais_comptes(inscrire):
+    module = _charger_le_script()
+    avant = module.comptes_hors_demonstration()
+
+    inscrire("vrai_joueur")
+
+    assert module.comptes_hors_demonstration() == avant + 1
+
+
 def test_les_mots_de_passe_de_demonstration_respectent_la_politique_de_l_api():
     """Un compte de démonstration doit pouvoir se connecter : 12 caractères minimum (contrat §2)."""
     module = _charger_le_script()
