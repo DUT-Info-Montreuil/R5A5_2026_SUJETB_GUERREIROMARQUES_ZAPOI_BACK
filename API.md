@@ -23,6 +23,7 @@ reste à faire. Il ne remplace pas deux autres sources :
 | Format | JSON, UTF-8, champs en **camelCase** |
 | Authentification | Cookie `jeton` (`HttpOnly`, `SameSite=Lax`), posé par la connexion |
 | Origines autorisées (CORS) | Liste `CORS_ORIGINS` du `.env` — `http://localhost:5173` par défaut |
+| Origine des écritures | `POST`, `PATCH`, `DELETE` envoyés par un navigateur depuis une origine hors `CORS_ORIGINS` (ni l'API elle-même) : `403` (`utils/origine.py`) |
 | Temps réel | Socket.IO sur la même URL (§5) |
 
 Pour que le navigateur envoie le cookie, le front appelle `fetch` avec
@@ -80,7 +81,7 @@ Toute erreur imprévue renvoie un `500` générique : la trace reste dans les lo
 | 200 / 201 / 204 | Succès / créé / succès sans contenu |
 | 400 | Charge invalide, **champ inconnu**, ou champ non modifiable par l'appelant. Toute la requête est rejetée |
 | 401 | Pas de session, session expirée, falsifiée ou **révoquée** |
-| 403 | La ressource est **publique**, mais l'**action** est interdite (ex. un joueur veut clore un tournoi) |
+| 403 | La ressource est **publique**, mais l'**action** est interdite (ex. un joueur veut clore un tournoi) ; ou écriture envoyée depuis une origine non autorisée |
 | 404 | Ressource inexistante, **ou invisible** pour l'appelant (ex. espace d'échange d'une équipe dont on n'est pas membre) |
 | 409 | Conflit avec l'**état** : transition impossible, rencontre déjà jouée, pseudo pris |
 | 413 | Corps de requête de plus de 1 Mio |

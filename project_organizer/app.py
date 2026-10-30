@@ -23,7 +23,7 @@ from .controllers.rencontre_controller import rencontre_bp
 from .controllers.sante_controller import sante_bp
 from .controllers.tournoi_controller import tournoi_bp
 from .extensions import limiter, socketio, spec
-from .utils import authentification, cache_http, database, entetes_securite, erreurs, journalisation, proxy, requetes
+from .utils import authentification, cache_http, database, entetes_securite, erreurs, journalisation, origine, proxy, requetes
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,8 @@ def create_app(config: type[Config] = Config) -> Flask:
     # par l'authentification soient journalisées elles aussi.
     proxy.installer(app, config.PROXIES_DE_CONFIANCE)
     requetes.installer(app)
+    # Avant l'authentification : une écriture d'une origine étrangère est refusée, session ou pas.
+    origine.installer(app, config.CORS_ORIGINS)
     authentification.configurer(app, config)
     limiter.init_app(app)
     entetes_securite.installer(app)

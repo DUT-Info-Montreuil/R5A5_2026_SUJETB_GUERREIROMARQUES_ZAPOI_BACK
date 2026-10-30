@@ -59,8 +59,9 @@ def configurer(app: Flask, config: type[Config]) -> None:
         JWT_COOKIE_SAMESITE="Lax",
         # Cookie persistant (Max-Age) : la session survit à la fermeture du navigateur.
         JWT_SESSION_COOKIE=False,
-        # Pas de jeton anti-CSRF : front et API sont sur le même site, SameSite=Lax
-        # suffit tant qu'aucune route n'écrit en GET (cours, « CSRF »).
+        # Pas de jeton anti-CSRF : SameSite=Lax bloque les autres sites tant qu'aucune
+        # route n'écrit en GET (cours, « CSRF »), et utils/origine.py refuse les écritures
+        # venues d'une autre origine du même site (autre port, sous-domaine voisin).
         JWT_COOKIE_CSRF_PROTECT=False,
     )
     jwt.init_app(app)
