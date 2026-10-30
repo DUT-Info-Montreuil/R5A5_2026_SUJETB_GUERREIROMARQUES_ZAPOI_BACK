@@ -11,7 +11,7 @@
 #
 #  Puis ouvrir http://localhost:8080
 #
-#  Données de démonstration (administrateur, 40 joueurs, 6 tournois), dans un autre terminal :
+#  Données de démonstration (administrateur, 40 joueurs, 13 tournois), dans un autre terminal :
 #      docker compose -f docker-compose.complet.yml --profile demo run --rm demo
 #
 #  Arrêter : Ctrl+C, puis `docker compose -f docker-compose.complet.yml down`.
