@@ -27,6 +27,7 @@ récentes fonctionneront sans doute, mais elles n'ont pas été vérifiées.
 | Outil | Version | Où elle intervient |
 |---|---|---|
 | Docker Desktop | version récente, avec `docker compose` (v2) | Lancement de toute la pile, ou de la base seule |
+| WSL 2 (Windows seulement) | avec une distribution Ubuntu | Moteur de Docker Desktop, et shell `bash` Linux (voir ci-dessous) |
 | Python | **3.13** | Back (l'image Docker utilise `python:3.13-slim`) |
 | PostgreSQL | **16** | Base de données (image `postgres:16`, rien à installer) |
 | Node.js | **22** (npm 10) | Front en développement (l'image Docker utilise `node:22-alpine`) |
@@ -40,12 +41,75 @@ Les dépendances exactes sont figées dans `requirements.txt` (back) et
 
 ---
 
+## Windows : installer Docker Desktop et WSL (une seule fois)
+
+Les conteneurs de ce projet (PostgreSQL, l'API, nginx) sont des programmes
+**Linux**. Sous Windows, ils tournent grâce à **Docker Desktop**, qui s'appuie
+lui-même sur **WSL 2** (Windows Subsystem for Linux). Sans ces deux éléments,
+la commande `docker compose` n'existe pas ou ne trouve pas de moteur.
+
+**1. Vérifier que la virtualisation est activée.** Gestionnaire des tâches →
+onglet *Performances* → *UC* : la ligne « Virtualisation » doit indiquer
+« Activé ». Sinon, l'activer dans le BIOS de la machine (option nommée
+*Intel VT-x*, *SVM* ou *Virtualization Technology*).
+
+**2. Installer WSL 2.** Ouvrir PowerShell **en administrateur** (clic droit →
+« Exécuter en tant qu'administrateur »), puis :
+
+```powershell
+wsl --install
+```
+
+Redémarrer l'ordinateur. Au redémarrage, Ubuntu s'ouvre et demande de choisir
+un nom d'utilisateur et un mot de passe **Linux** (sans rapport avec Windows).
+Vérifier ensuite, dans un PowerShell normal :
+
+```powershell
+wsl --status
+wsl -l -v
+```
+
+La colonne `VERSION` d'Ubuntu doit afficher `2`. Si WSL signale qu'il faut une
+mise à jour : `wsl --update`.
+
+**3. Installer Docker Desktop.** Télécharger *Docker Desktop for Windows* sur
+https://www.docker.com/products/docker-desktop/ et l'installer en laissant
+cochée l'option **« Use WSL 2 instead of Hyper-V »**. Redémarrer si l'installateur
+le demande, puis **lancer Docker Desktop** et attendre que son indicateur en bas
+à gauche passe au vert (« Engine running »). Docker Desktop doit rester ouvert
+tant qu'on utilise le projet : fermé, il n'y a plus de moteur.
+
+Vérifier dans un **nouveau** PowerShell (un terminal ouvert avant l'installation
+ne connaît pas encore la commande) :
+
+```powershell
+docker --version
+docker compose version
+docker run --rm hello-world
+```
+
+Le dernier message doit contenir « Hello from Docker! ».
+
+**4. Installer Git pour Windows** (https://git-scm.com/download/win), si ce
+n'est pas déjà fait.
+
+**Le shell `bash` Linux (facultatif).** WSL fournit un vrai terminal Linux :
+ouvrir « Ubuntu » depuis le menu Démarrer, ou taper `wsl` dans PowerShell. Il
+sert à lancer telles quelles les commandes `bash` des guides (`cp`, `source`,
+scripts `.sh`). Pour que Docker soit utilisable depuis Ubuntu : Docker Desktop →
+*Settings* → *Resources* → *WSL integration* → activer Ubuntu. Cloner alors les
+dépôts **dans le dossier personnel d'Ubuntu** (`~/agon-cup`), pas sous `/mnt/c` :
+c'est bien plus rapide, et les fins de ligne restent celles de Linux. Les
+commandes de ce README sont données pour PowerShell, qui suffit pour la pile
+complète.
+
+---
+
 ## Démarrage rapide sous Windows : toute la pile avec Docker
 
 C'est le chemin recommandé pour **voir le site fonctionner** (par exemple pour la
-correction). Il ne demande que **Docker Desktop** (démarré, avec l'intégration
-WSL 2 activée, qui est le réglage par défaut) et **Git**. Ni Python, ni Node, ni
-PostgreSQL à installer. Commandes à lancer dans **PowerShell** :
+correction). Il ne demande que **Docker Desktop** (installé avec WSL 2 et **lancé**,
+voir la section précédente) et **Git**. Ni Python, ni Node, ni PostgreSQL à installer. Commandes à lancer dans **PowerShell** :
 
 ```powershell
 mkdir agon-cup
@@ -112,7 +176,7 @@ ci-dessous : la base seule dans Docker, l'API et le front sur la machine.
 
 ## Prérequis (développement)
 
-- **Docker Desktop** — pour PostgreSQL
+- **Docker Desktop** — pour PostgreSQL ; sous Windows, avec WSL 2 (voir plus haut)
 - **Python 3.13**
 - **Node.js 22** — pour le front, voir son dépôt
 - **Git**
@@ -369,6 +433,18 @@ python -m project_organizer
 Le projet utilise `pg8000`, un pilote écrit entièrement en Python. Le pilote
 habituel, `psycopg`, embarque une bibliothèque native que la même protection
 bloque. Rien à faire : c'est déjà configuré.
+
+**`docker` n'est pas reconnu, ou « Cannot connect to the Docker daemon »**
+
+- *« Le terme "docker" n'est pas reconnu »* : Docker Desktop n'est pas installé,
+  ou le terminal a été ouvert avant l'installation. Fermer PowerShell, en ouvrir un nouveau.
+- *« error during connect … dockerDesktopLinuxEngine: Le fichier spécifié est
+  introuvable »* (ou *« Cannot connect to the Docker daemon »*) : Docker Desktop
+  n'est pas lancé. Le démarrer et attendre « Engine running ».
+- *« WSL 2 installation is incomplete »* ou *« WSL needs updating »* : dans
+  PowerShell administrateur, `wsl --update`, puis relancer Docker Desktop.
+- *« Virtualization must be enabled »* : activer la virtualisation dans le BIOS
+  (voir « Windows : installer Docker Desktop et WSL »).
 
 **PowerShell refuse d'activer l'environnement virtuel**
 
