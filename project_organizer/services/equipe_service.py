@@ -113,6 +113,9 @@ def modifier(id_equipe: int, appelant: Utilisateur, champs: dict) -> tuple[Equip
             raise BadRequest(f"Champ non modifiable par vous : {', '.join(interdits)}.")
 
         if "nom_equipe" in champs:
+            # B-11 : après la clôture, l'équipe est dans l'arbre ; son nom y est figé, comme dans le palmarès.
+            if tournoi.statut_tournoi != "INSCRIPTIONS_OUVERTES":
+                raise Conflict("Les inscriptions sont closes : le nom de l'équipe ne peut plus changer.")
             if equipe_repository.nom_pris(session, equipe.id_tournoi, champs["nom_equipe"], sauf_equipe=id_equipe):
                 raise Conflict("Ce nom d'équipe est déjà pris dans ce tournoi.")
             equipe.nom_equipe = champs["nom_equipe"]
