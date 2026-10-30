@@ -9,12 +9,14 @@ from flask import Blueprint, jsonify
 from flask_pydantic_spec import Response
 
 from ..dtos.sante_dto import EtatSanteDto, sante_degradee_dto, sante_vers_dto
-from ..extensions import spec
+from ..extensions import limiter, spec
 from ..services import sante_service
 from ..services.sante_service import BaseInjoignable
 from ..utils.authentification import publique
 
 sante_bp = Blueprint("sante", __name__)
+# Les sondes de santé (Docker, supervision) interrogent souvent : jamais freinées.
+limiter.exempt(sante_bp)
 
 
 @sante_bp.get("/health")

@@ -362,7 +362,11 @@ inconnu, un hachage leurre est vérifié quand même, pour que la réponse prenn
 le même temps.
 
 **Limitation de débit** : `@limiter.limit(Config.LIMITE_CONNEXION)` sur la
-connexion et l'inscription (5 par minute et par adresse par défaut).
+connexion et l'inscription (5 par minute et par adresse par défaut), et un
+plafond global par adresse (`LIMITE_GLOBALE`, 1 200 par minute) qui couvre toutes
+les routes sauf `/health`. **Jeton** : l'algorithme est fixé à HS256 en lecture
+comme en écriture (`JWT_DECODE_ALGORITHMS`) : un jeton `alg: none` ou signé avec
+un autre algorithme est refusé en 401.
 
 **En-têtes de sécurité** : `utils/entetes_securite.py` pose `nosniff`,
 `X-Frame-Options: DENY` et une `Content-Security-Policy` stricte sur toutes les
@@ -407,13 +411,13 @@ route déclare les champs modifiables par rôle, et tout champ hors liste fait
 | Niveau | Usage dans ce projet |
 |---|---|
 | `DEBUG` | Détail utile uniquement en développement |
-| `INFO` | Démarrage, requête traitée, transition d'état du tournoi |
-| `WARNING` | Anormal mais géré : accès refusé, connexion échouée, schéma incomplet |
-| `ERROR` | Échec d'une opération : base injoignable, exception non prévue |
+| `INFO` | Démarrage, requête traitée (statut 2xx et 3xx), transition d'état du tournoi |
+| `WARNING` | Anormal mais géré : toute réponse 4xx (« Accès refusé » pour 401 et 403, « Requête refusée » pour les autres), connexion échouée, schéma incomplet |
+| `ERROR` | Échec d'une opération : toute réponse 5xx, base injoignable, exception non prévue |
 | `CRITICAL` | L'application ne peut plus fonctionner |
 
-**Toujours journaliser** : chaque requête (méthode, chemin, statut, durée,
-`idUtilisateur`, identifiant de requête) et chaque **événement de sécurité** —
+**Toujours journaliser** : chaque requête (méthode, motif de la route, chemin,
+statut, taille de la réponse, durée, `idUtilisateur`, identifiant de requête) et chaque **événement de sécurité** —
 connexion échouée, 401, 403, exclusion d'un joueur, disqualification.
 
 **Ne jamais journaliser** : mot de passe, jeton, en-tête `Authorization`,

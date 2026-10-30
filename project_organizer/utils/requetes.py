@@ -6,8 +6,14 @@ utilisateur, et un identifiant de requête. L'identifiant est aussi renvoyé
 dans l'en-tête `X-Request-Id` : quand le front affiche une erreur, on retrouve
 la ligne de log correspondante.
 
-Les réponses 401 et 403 sont journalisées en WARNING : ce sont les événements
-de sécurité, ceux que visent les tests de droits d'accès.
+Le niveau suit le statut : 5xx en ERROR (le serveur est en défaut), 4xx en
+WARNING (la requête est refusée), le reste en INFO. Les 401 et 403 gardent leur
+message « Accès refusé » : ce sont les événements de sécurité, ceux que visent
+les tests de droits d'accès.
+
+`route` est le motif de la route (`/api/equipes/<int:id_equipe>`), `chemin` le
+chemin réellement demandé : le motif permet de regrouper les requêtes d'une même
+route, quels que soient les identifiants.
 
 Ce qui n'est JAMAIS journalisé : le corps de la requête (il peut contenir un
 mot de passe), l'en-tête Authorization (il contient le jeton), l'adresse
@@ -39,10 +45,13 @@ def installer(app: Flask) -> None:
         contexte = {
             "idRequete": g.get("id_requete"),
             "methode": request.method,
+            "route": request.url_rule.rule if request.url_rule else None,
             "chemin": request.path,
             "statut": reponse.status_code,
             "dureeMs": duree_ms,
-            # Renseigné par la couche d'authentification quand elle existera.
+            # Taille du corps de la réponse ; absente pour une réponse en flux.
+            "tailleOctets": reponse.content_length,
+            # Posé par la couche d'authentification (utils/authentification.py).
             "idUtilisateur": g.get("id_utilisateur"),
         }
 
@@ -50,6 +59,8 @@ def installer(app: Flask) -> None:
             logger.warning("Accès refusé", extra={"contexte": contexte})
         elif reponse.status_code >= 500:
             logger.error("Requête en échec", extra={"contexte": contexte})
+        elif reponse.status_code >= 400:
+            logger.warning("Requête refusée", extra={"contexte": contexte})
         else:
             logger.info("Requête traitée", extra={"contexte": contexte})
 
