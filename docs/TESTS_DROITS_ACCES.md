@@ -2,7 +2,7 @@
 
 Le sujet demande, pour **chaque règle d'accès**, « le test qui montre qu'un utilisateur non autorisé se fait bien refuser l'accès — pas seulement que celui qui a le droit y arrive ». Ce tableau relie chaque exigence à ses tests. Il est **vérifié automatiquement** : chaque nom de test cité existe dans `tests/` (le fichier est entre parenthèses).
 
-La suite complète compte **284 tests**. La lancer : `python -m pytest` (la base doit tourner). Un test précis : `python -m pytest -k test_un_joueur_exclu_perd_l_acces_tout_de_suite`.
+La suite complète compte plus de **300 tests**. La lancer : `python -m pytest` (la base doit tourner). Un test précis : `python -m pytest -k test_un_joueur_exclu_perd_l_acces_tout_de_suite`.
 
 ## Par exigence du sujet
 

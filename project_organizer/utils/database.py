@@ -57,16 +57,6 @@ def initialiser(database_url: str) -> Engine:
     return _engine
 
 
-def moteur() -> Engine:
-    """Le moteur de connexion ; erreur explicite s'il n'a pas été initialisé."""
-    if _engine is None:
-        raise RuntimeError(
-            "La base n'est pas initialisée. "
-            "database.initialiser(...) doit être appelé au démarrage."
-        )
-    return _engine
-
-
 @contextmanager
 def session() -> Iterator[Session]:
     """Ouvre une session, valide à la sortie, annule en cas d'erreur.

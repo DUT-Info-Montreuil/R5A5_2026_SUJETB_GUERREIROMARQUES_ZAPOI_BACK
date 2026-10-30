@@ -235,7 +235,7 @@ class Demo:
         faits = []
         if not self.tournoi_existe(NOMS_DE_TOURNOIS[0]):
             t = self.creer_tournoi(NOMS_DE_TOURNOIS[0], "League of Legends", jeux, 8, 21)
-            equipes = self.huit_equipes(t, jeux["League of Legends"][1], decalage=0)
+            self.huit_equipes(t, jeux["League of Legends"][1], decalage=0)
             self.changer_statut(t, "INSCRIPTIONS_CLOSES"); self.changer_statut(t, "EN_COURS")
             self.jouer(t, 5)  # les quatre quarts de finale et une demi-finale
             # Le tirage au sort décide qui est encore en lice : on écrit dans une équipe qui l'est.
