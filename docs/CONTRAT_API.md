@@ -1,6 +1,6 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 14 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 15 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
 v6 : précisions sur les équipes, les demandes et les membres, issues de leur implémentation (§4).
 v7 : espace d'échange et `GET /api/moi/…` (§4, §6), authentification du socket et abonnement `equipe:suivre` (§7).
@@ -11,6 +11,7 @@ v11 : un administrateur ne participe pas aux tournois — `403` sur la création
 v12 : plafond de 20 connexions temps réel simultanées par adresse IP, compteur `connexionsRefusees` (§7).
 v13 : l'inscription est limitée à 10 essais par heure et par adresse (§2) ; la connexion reste à 5 par minute.
 v14 : toute écriture (`POST`, `PATCH`, `DELETE`) envoyée par un navigateur depuis une origine hors `CORS_ORIGINS` reçoit `403` (§2).
+v15 : plafond global de 1 200 requêtes par minute et par adresse, toutes routes confondues, `GET /health` excepté : au-delà, `429` (§1.2).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -55,6 +56,7 @@ Le front ne doit jamais avoir à deviner la structure d'une erreur.
 | 404 | Ressource inexistante, **ou invisible pour l'appelant** (voir §1.3) |
 | 409 | Conflit avec l'**état** courant : inscriptions closes, tournoi déjà lancé, pseudo déjà pris |
 | 422 | Violation d'une **règle métier** : rôle déjà occupé, joueur déjà dans une équipe du tournoi |
+| 429 | Trop de requêtes (v15) : plafond de 1 200 par minute et par adresse, toutes routes confondues (`GET /health` excepté), en plus des plafonds propres à la connexion, à l'inscription et aux messages |
 
 La distinction 409 / 422 est volontaire : 409 pour ce qui dépend du cycle de vie
 du tournoi, 422 pour ce qui dépend des règles de composition. Elle se justifie
@@ -688,6 +690,7 @@ mais ces règles-là restent du ressort de Flask.
 | 15 | Déconnexion (v9) | Révoque le jeton (`version_jeton`) et coupe les sockets ouverts ; « se déconnecter » vaut « se déconnecter partout » |
 | 16 | Cache HTTP (v9) | `no-cache` + `ETag` sur les `GET` publics (revalidation, `304`), `no-store` partout ailleurs ; jamais de `max-age` |
 | 17 | Origine des écritures (v14) | En-tête `Origin` vérifié sur `POST`, `PATCH`, `DELETE` : hors `CORS_ORIGINS`, `403` (§2) |
+| 18 | Plafond global (v15) | 1 200 requêtes par minute et par adresse, `GET /health` excepté ; `429` au-delà (§1.2) |
 
 Ce document est figé. Toute modification ultérieure est un changement de
 contrat : annoncée à l'autre, répercutée des deux côtés dans la même séance.

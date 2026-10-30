@@ -343,7 +343,9 @@ pourquoi sinon. Causes à vérifier, dans cet ordre :
 **Un message « 429 » (trop de requêtes) à la connexion**
 
 La connexion est limitée à 5 essais par minute et par adresse, l'inscription à
-10 par heure. Attendre une minute.
+10 par heure. Attendre une minute. Un plafond global de 1 200 requêtes par minute et
+par adresse existe aussi (`LIMITE_GLOBALE` dans `.env`) : il ne se déclenche que lors d'un
+usage anormal, par exemple un script qui boucle.
 
 **Docker : `exec ./docker-entrypoint.sh: no such file or directory`**
 

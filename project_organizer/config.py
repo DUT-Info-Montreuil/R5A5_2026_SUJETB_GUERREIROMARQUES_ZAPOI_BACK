@@ -91,6 +91,11 @@ class Config:
     # donc que ralentir la récolte : 10 essais par heure au lieu de 300 (5 par minute).
     LIMITE_INSCRIPTION: str = _optionnel("LIMITE_INSCRIPTION", "10 per hour")
 
+    # Plafond global, toutes routes confondues, par adresse : un filet contre l'inondation, loin au-dessus
+    # d'un usage normal (20 requêtes par seconde). Les plafonds ci-dessus, bien plus stricts, restent les
+    # vraies protections des routes sensibles. /health en est exempté.
+    LIMITE_GLOBALE: str = _optionnel("LIMITE_GLOBALE", "1200 per minute")
+
     # Plafond de messages par utilisateur dans l'espace d'échange : freine l'inondation d'un chat.
     LIMITE_MESSAGES: str = _optionnel("LIMITE_MESSAGES", "30 per minute")
 
