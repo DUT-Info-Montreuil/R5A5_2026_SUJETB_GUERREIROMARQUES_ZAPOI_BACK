@@ -1,5 +1,19 @@
 # Agôn Cup — API
 
+![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![Flask 3.1](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)
+![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Socket.IO 5](https://img.shields.io/badge/Socket.IO-temps%20r%C3%A9el-010101?logo=socketdotio&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![SQLAlchemy 2](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
+![Pydantic 2](https://img.shields.io/badge/Pydantic-2-E92063?logo=pydantic&logoColor=white)
+![JWT cookie HttpOnly](https://img.shields.io/badge/auth-JWT%20cookie%20HttpOnly-000000?logo=jsonwebtokens&logoColor=white)
+![argon2](https://img.shields.io/badge/mots%20de%20passe-argon2-5A29E4)
+![gunicorn](https://img.shields.io/badge/gunicorn-23-499848?logo=gunicorn&logoColor=white)
+![Tests 300+ pytest](https://img.shields.io/badge/tests-300%2B%20pytest-0A9EDC?logo=pytest&logoColor=white)
+![OpenAPI Swagger](https://img.shields.io/badge/API-OpenAPI%20%2F%20Swagger-85EA2D?logo=swagger&logoColor=black)
+![R5A5 sujet B](https://img.shields.io/badge/R5A5-sujet%20B-8A2BE2)
+
 API de la plateforme de tournois de l'association étudiante (R5A5, sujet B).
 
 Ce dépôt contient le back-end : une API REST en Flask, un canal temps réel en
