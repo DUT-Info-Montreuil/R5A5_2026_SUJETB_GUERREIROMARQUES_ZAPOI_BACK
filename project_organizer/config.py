@@ -86,6 +86,10 @@ class Config:
 
     # Freine la force brute sur la connexion et l'inscription (cours, § limitation de débit).
     LIMITE_CONNEXION: str = _optionnel("LIMITE_CONNEXION", "5 per minute")
+    # Inscription : bien plus stricte. Un 409 « e-mail déjà utilisé » révèle qu'une adresse est
+    # inscrite, et aucun message ne peut le cacher sans envoi d'e-mail de confirmation. On ne peut
+    # donc que ralentir la récolte : 10 essais par heure au lieu de 300 (5 par minute).
+    LIMITE_INSCRIPTION: str = _optionnel("LIMITE_INSCRIPTION", "10 per hour")
 
     # Plafond de messages par utilisateur dans l'espace d'échange : freine l'inondation d'un chat.
     LIMITE_MESSAGES: str = _optionnel("LIMITE_MESSAGES", "30 per minute")
@@ -105,6 +109,10 @@ class Config:
     # quelques-uns par changement de page.
     SOCKET_EVENEMENTS_MAX: int = int(_optionnel("SOCKET_EVENEMENTS_MAX", "30"))
     SOCKET_FENETRE_DEBIT_SECONDES: int = int(_optionnel("SOCKET_FENETRE_DEBIT_SECONDES", "10"))
+    # Connexions simultanées par adresse IP. En mode threading, chaque connexion occupe un des
+    # 100 threads de gunicorn : sans plafond, une seule machine pourrait tous les prendre et rendre
+    # l'API muette. 20 laisse passer une salle de TP derrière la même adresse publique.
+    SOCKET_CONNEXIONS_MAX_PAR_ADRESSE: int = int(_optionnel("SOCKET_CONNEXIONS_MAX_PAR_ADRESSE", "20"))
     # Fréquence à laquelle le serveur ferme les connexions dont le jeton a expiré.
     SOCKET_VERIFICATION_SECONDES: int = int(_optionnel("SOCKET_VERIFICATION_SECONDES", "30"))
 

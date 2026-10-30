@@ -105,6 +105,33 @@ def test_le_plafond_se_mesure_sur_une_fenetre_de_temps(app, decor, monkeypatch):
     assert connexion.is_connected()
 
 
+# --- Plafond de connexions par adresse -------------------------------------------------------------
+
+def test_une_adresse_ne_peut_pas_ouvrir_plus_de_connexions_que_le_plafond(app):
+    avant = metriques.instantane()["connexionsRefusees"]
+    ouvertes = [_connecter(app, app.test_client()) for _ in range(Config.SOCKET_CONNEXIONS_MAX_PAR_ADRESSE)]
+
+    de_trop = socketio.test_client(app, flask_test_client=app.test_client())
+
+    assert all(connexion.is_connected() for connexion in ouvertes)
+    assert not de_trop.is_connected()
+    assert metriques.instantane()["connexionsRefusees"] == avant + 1
+
+
+def test_une_connexion_fermee_libere_sa_place(app):
+    ouvertes = [_connecter(app, app.test_client()) for _ in range(Config.SOCKET_CONNEXIONS_MAX_PAR_ADRESSE)]
+
+    ouvertes[0].disconnect()
+    remplacante = socketio.test_client(app, flask_test_client=app.test_client())
+
+    assert remplacante.is_connected()
+
+
+def test_le_plafond_de_connexions_est_regle_pour_une_salle_derriere_un_nat():
+    # Assez haut pour une salle de TP derrière une seule adresse, assez bas face aux 100 threads de gunicorn.
+    assert Config.SOCKET_CONNEXIONS_MAX_PAR_ADRESSE == 20
+
+
 # --- Abonnement traité après la fermeture de la connexion -------------------------------------------
 
 def _couper_avant_l_entree_dans_le_salon(monkeypatch):
@@ -246,7 +273,7 @@ def test_l_administrateur_consulte_les_metriques(decor):
     assert reponse.status_code == 200
     corps = reponse.get_json()
     for champ in ("connexionsActives", "connexionsAuthentifiees", "ouverturesDerniereMinute", "messagesDerniereMinute",
-                  "abonnementsRefuses", "coupuresPourDebit", "coupuresPourExpiration", "demarreLe"):
+                  "abonnementsRefuses", "connexionsRefusees", "coupuresPourDebit", "coupuresPourExpiration", "demarreLe"):
         assert champ in corps
 
 

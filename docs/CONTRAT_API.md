@@ -8,6 +8,8 @@ v8 : règle de lancement « poste obligatoire » (§3), limites du temps réel e
 v9 : la déconnexion révoque les jetons (§2.3) et coupe les sockets ouverts (§7), compteur `coupuresPourRevocation` (§7), cache HTTP par `ETag` (§1).
 v10 : désistement du capitaine, `DELETE /api/equipes/{id}` (§4) ; motif `dissolution` de `equipe:acces-revoque` (§7).
 v11 : un administrateur ne participe pas aux tournois — `403` sur la création d'une équipe et sur une demande d'adhésion (§4).
+v12 : plafond de 20 connexions temps réel simultanées par adresse IP, compteur `connexionsRefusees` (§7).
+v13 : l'inscription est limitée à 10 essais par heure et par adresse (§2) ; la connexion reste à 5 par minute.
 v14 : toute écriture (`POST`, `PATCH`, `DELETE`) envoyée par un navigateur depuis une origine hors `CORS_ORIGINS` reçoit `403` (§2).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
@@ -145,7 +147,7 @@ règles.
 
 | Route | Accès | Réponse |
 |---|---|---|
-| `POST /api/auth/inscription` | Public, 5 essais par minute | `201 { utilisateur }` + cookie ; `409` pseudo ou e-mail pris ; `400` mot de passe de moins de 12 caractères |
+| `POST /api/auth/inscription` | Public, 10 essais par heure (v13) | `201 { utilisateur }` + cookie ; `409` pseudo ou e-mail pris ; `400` mot de passe de moins de 12 caractères ; `429` au-delà de la limite |
 | `POST /api/auth/connexion` | Public, 5 essais par minute | `200 { utilisateur }` + cookie ; `401` ; `429` au-delà de la limite |
 | `GET /api/auth/moi` | Authentifié | `200 Utilisateur` : sert au front à restaurer la session au chargement |
 | `POST /api/auth/deconnexion` | Public | `204`, cookie effacé **et jeton révoqué** (v9) : l'appel est publique pour qu'une session expirée puisse être fermée, et sans effet de révocation si le cookie est absent ou invalide |
@@ -439,7 +441,7 @@ messages.
 - **`POST /api/equipes/{id}/demandes`** — pas de corps. `403` pour un administrateur (v11). `409` si une demande est déjà en attente ou si les inscriptions sont closes ; `422` si le joueur a déjà une équipe dans ce tournoi, ou si l'équipe est complète.
 - **`GET /api/equipes/{id}/demandes`** — paramètre facultatif `statut` ; sans filtre, tout l'historique. `404` pour quiconque n'est pas capitaine de l'équipe, **administrateur compris**.
 - **`PATCH /api/demandes/{id}`** — `statutDemande` vaut `ACCEPTEE` ou `REFUSEE`. `404` si l'appelant n'est pas le capitaine de l'équipe. L'acceptation ajoute le joueur **sans poste**.
-- **`PATCH /api/equipes/{id}`** — `statutEquipe` n'accepte que `DISQUALIFIEE`. `403` si l'appelant n'est ni capitaine ni administrateur ; `400` si un champ est hors de la liste de son rôle. Disqualification : `409` si le tournoi n'est pas `EN_COURS` ou si l'équipe n'est plus en lice.
+- **`PATCH /api/equipes/{id}`** — `statutEquipe` n'accepte que `DISQUALIFIEE`. `403` si l'appelant n'est ni capitaine ni administrateur ; `400` si un champ est hors de la liste de son rôle. Renommage : `409` si les inscriptions sont closes (B-11, comme toute écriture d'équipe, §10). Disqualification : `409` si le tournoi n'est pas `EN_COURS` ou si l'équipe n'est plus en lice.
 - **`GET /api/moi/equipes`** (v7) — `[ { idEquipe, nomEquipe, statutEquipe, estCapitaine, idTournoi, nomTournoi, statutTournoi } ]`, les plus récentes d'abord. Sert à retrouver ses équipes sans parcourir chaque tournoi.
 - **`GET /api/moi/demandes`** (v7) — `[ { idDemande, statutDemande, creeLe, idEquipe, nomEquipe, idTournoi, nomTournoi } ]`, uniquement les demandes en attente de l'utilisateur.
 - **`PATCH …/membres/{idUtilisateur}`** — `estCapitaine` n'accepte que `true` : le capitanat se transmet, il ne se retire pas. `403` pour tout appelant qui n'est pas capitaine de l'équipe, administrateur compris (B-10).
@@ -612,10 +614,11 @@ a déjà été autorisé.
 | Heartbeat | ping toutes les 20 s, pong attendu sous 15 s | connexion jugée morte et fermée (inférieur aux 60 s de `proxy_read_timeout` de Nginx) |
 | Taille d'un message reçu | 4 096 octets | la bibliothèque ferme la connexion |
 | Événements par connexion | 30 en 10 s | connexion coupée, `WARNING` journalisé |
+| Connexions simultanées par adresse IP (v12) | 20 | connexion refusée à l'ouverture (`connect_error` côté client), `WARNING` journalisé |
 | Jeton expiré | vérifié toutes les 30 s | connexion fermée ; le client se reconnecte en visiteur |
 | Jeton révoqué (v9) | vérifié toutes les 30 s, avec l'expiration | connexion fermée ; le client se reconnecte en visiteur |
 
-**Supervision (v8)** : `GET /api/metriques/temps-reel`, **administrateur seulement** (`401` sans session, `403` pour un joueur). Renvoie `{ demarreLe, connexionsActives, connexionsAuthentifiees, ouverturesDerniereMinute, messagesDerniereMinute, ouverturesTotal, fermeturesTotal, messagesTotal, abonnementsRefuses, coupuresPourDebit, coupuresPourExpiration, coupuresPourRevocation }`. Les compteurs sont en mémoire : ils repartent de zéro au redémarrage.
+**Supervision (v8)** : `GET /api/metriques/temps-reel`, **administrateur seulement** (`401` sans session, `403` pour un joueur). Renvoie `{ demarreLe, connexionsActives, connexionsAuthentifiees, ouverturesDerniereMinute, messagesDerniereMinute, ouverturesTotal, fermeturesTotal, messagesTotal, abonnementsRefuses, connexionsRefusees, coupuresPourDebit, coupuresPourExpiration, coupuresPourRevocation }`. Les compteurs sont en mémoire : ils repartent de zéro au redémarrage.
 
 `equipe:acces-revoque` est l'événement qu'on oublie. Sans lui, un joueur exclu
 garde son écran de chat ouvert et continue de recevoir les messages jusqu'à ce
@@ -678,10 +681,10 @@ mais ces règles-là restent du ressort de Flask.
 | 8 | Droits dans le jeton | Aucun — tout est relu en base à chaque requête (§2.2) |
 | 9 | Révocation | Colonne `utilisateur.version_jeton` comparée à chaque requête (§2.3) |
 | 10 | Transport du jeton (v4) | Cookie `HttpOnly` `SameSite=Lax`, plus d'en-tête `Authorization` (§2) |
-| 11 | Mots de passe (v4) | argon2, 12 caractères minimum, 5 essais par minute |
+| 11 | Mots de passe (v4, v13) | argon2, 12 caractères minimum, connexion 5 essais par minute, inscription 10 par heure |
 | 12 | Écritures du chat (v7) | En HTTP, jamais par le socket : le socket notifie, il ne crée pas |
 | 13 | Identité du socket (v7) | Lue dans le cookie à la connexion, gardée côté serveur, jamais dans un message |
-| 14 | Limites du temps réel (v8) | Heartbeat 20 s / 15 s, 4 096 octets, 30 événements par 10 s, fermeture à l'expiration du jeton |
+| 14 | Limites du temps réel (v8, v12) | Heartbeat 20 s / 15 s, 4 096 octets, 30 événements par 10 s, 20 connexions par adresse, fermeture à l'expiration du jeton |
 | 15 | Déconnexion (v9) | Révoque le jeton (`version_jeton`) et coupe les sockets ouverts ; « se déconnecter » vaut « se déconnecter partout » |
 | 16 | Cache HTTP (v9) | `no-cache` + `ETag` sur les `GET` publics (revalidation, `304`), `no-store` partout ailleurs ; jamais de `max-age` |
 | 17 | Origine des écritures (v14) | En-tête `Origin` vérifié sur `POST`, `PATCH`, `DELETE` : hors `CORS_ORIGINS`, `403` (§2) |

@@ -104,6 +104,15 @@ def test_la_connexion_est_limitee_a_5_tentatives_par_minute(client):
     assert statuts == [401] * 5 + [429]
 
 
+def test_l_inscription_est_limitee_a_10_essais_par_heure(client):
+    """Audit V-03 : un 409 révèle qu'une adresse est inscrite ; la limite rend la récolte très lente."""
+    corps_invalide = {"pseudo": "x", "email": "pas-une-adresse", "motDePasse": "court"}
+    statuts = [client.post("/api/auth/inscription", json=corps_invalide).status_code for _ in range(11)]
+
+    # Les essais refusés comptent aussi : sinon des corps invalides contourneraient la limite.
+    assert statuts == [400] * 10 + [429]
+
+
 # --- Session -----------------------------------------------------------------
 
 def test_moi_renvoie_l_utilisateur_de_la_session(client, inscrire):
