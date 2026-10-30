@@ -1,6 +1,6 @@
 # Contrat d'API — Plateforme de tournois (R5A5, sujet B)
 
-**Version 11 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
+**Version 12 — contrat figé.** v4 : le jeton passe dans un cookie `HttpOnly` (§2), après lecture du cours sur l'authentification.
 v5 : précisions sur les tournois et l'arbre, issues de leur implémentation — corps de création, `GET /api/jeux`, règles de clôture et de lancement, résultats (§3, §5), abonnement au salon d'un tournoi (§7).
 v6 : précisions sur les équipes, les demandes et les membres, issues de leur implémentation (§4).
 v7 : espace d'échange et `GET /api/moi/…` (§4, §6), authentification du socket et abonnement `equipe:suivre` (§7).
@@ -8,6 +8,7 @@ v8 : règle de lancement « poste obligatoire » (§3), limites du temps réel e
 v9 : la déconnexion révoque les jetons (§2.3) et coupe les sockets ouverts (§7), compteur `coupuresPourRevocation` (§7), cache HTTP par `ETag` (§1).
 v10 : désistement du capitaine, `DELETE /api/equipes/{id}` (§4) ; motif `dissolution` de `equipe:acces-revoque` (§7).
 v11 : un administrateur ne participe pas aux tournois — `403` sur la création d'une équipe et sur une demande d'adhésion (§4).
+v12 : plafond de 20 connexions temps réel simultanées par adresse IP, compteur `connexionsRefusees` (§7).
 
 Ce document est la frontière entre le front et le back. Il vit **dans les deux
 dépôts**, à l'identique. Toute modification se décide à deux et se répercute des
@@ -609,10 +610,11 @@ a déjà été autorisé.
 | Heartbeat | ping toutes les 20 s, pong attendu sous 15 s | connexion jugée morte et fermée (inférieur aux 60 s de `proxy_read_timeout` de Nginx) |
 | Taille d'un message reçu | 4 096 octets | la bibliothèque ferme la connexion |
 | Événements par connexion | 30 en 10 s | connexion coupée, `WARNING` journalisé |
+| Connexions simultanées par adresse IP (v12) | 20 | connexion refusée à l'ouverture (`connect_error` côté client), `WARNING` journalisé |
 | Jeton expiré | vérifié toutes les 30 s | connexion fermée ; le client se reconnecte en visiteur |
 | Jeton révoqué (v9) | vérifié toutes les 30 s, avec l'expiration | connexion fermée ; le client se reconnecte en visiteur |
 
-**Supervision (v8)** : `GET /api/metriques/temps-reel`, **administrateur seulement** (`401` sans session, `403` pour un joueur). Renvoie `{ demarreLe, connexionsActives, connexionsAuthentifiees, ouverturesDerniereMinute, messagesDerniereMinute, ouverturesTotal, fermeturesTotal, messagesTotal, abonnementsRefuses, coupuresPourDebit, coupuresPourExpiration, coupuresPourRevocation }`. Les compteurs sont en mémoire : ils repartent de zéro au redémarrage.
+**Supervision (v8)** : `GET /api/metriques/temps-reel`, **administrateur seulement** (`401` sans session, `403` pour un joueur). Renvoie `{ demarreLe, connexionsActives, connexionsAuthentifiees, ouverturesDerniereMinute, messagesDerniereMinute, ouverturesTotal, fermeturesTotal, messagesTotal, abonnementsRefuses, connexionsRefusees, coupuresPourDebit, coupuresPourExpiration, coupuresPourRevocation }`. Les compteurs sont en mémoire : ils repartent de zéro au redémarrage.
 
 `equipe:acces-revoque` est l'événement qu'on oublie. Sans lui, un joueur exclu
 garde son écran de chat ouvert et continue de recevoir les messages jusqu'à ce
@@ -678,7 +680,7 @@ mais ces règles-là restent du ressort de Flask.
 | 11 | Mots de passe (v4) | argon2, 12 caractères minimum, 5 essais par minute |
 | 12 | Écritures du chat (v7) | En HTTP, jamais par le socket : le socket notifie, il ne crée pas |
 | 13 | Identité du socket (v7) | Lue dans le cookie à la connexion, gardée côté serveur, jamais dans un message |
-| 14 | Limites du temps réel (v8) | Heartbeat 20 s / 15 s, 4 096 octets, 30 événements par 10 s, fermeture à l'expiration du jeton |
+| 14 | Limites du temps réel (v8, v12) | Heartbeat 20 s / 15 s, 4 096 octets, 30 événements par 10 s, 20 connexions par adresse, fermeture à l'expiration du jeton |
 | 15 | Déconnexion (v9) | Révoque le jeton (`version_jeton`) et coupe les sockets ouverts ; « se déconnecter » vaut « se déconnecter partout » |
 | 16 | Cache HTTP (v9) | `no-cache` + `ETag` sur les `GET` publics (revalidation, `304`), `no-store` partout ailleurs ; jamais de `max-age` |
 

@@ -105,6 +105,10 @@ class Config:
     # quelques-uns par changement de page.
     SOCKET_EVENEMENTS_MAX: int = int(_optionnel("SOCKET_EVENEMENTS_MAX", "30"))
     SOCKET_FENETRE_DEBIT_SECONDES: int = int(_optionnel("SOCKET_FENETRE_DEBIT_SECONDES", "10"))
+    # Connexions simultanées par adresse IP. En mode threading, chaque connexion occupe un des
+    # 100 threads de gunicorn : sans plafond, une seule machine pourrait tous les prendre et rendre
+    # l'API muette. 20 laisse passer une salle de TP derrière la même adresse publique.
+    SOCKET_CONNEXIONS_MAX_PAR_ADRESSE: int = int(_optionnel("SOCKET_CONNEXIONS_MAX_PAR_ADRESSE", "20"))
     # Fréquence à laquelle le serveur ferme les connexions dont le jeton a expiré.
     SOCKET_VERIFICATION_SECONDES: int = int(_optionnel("SOCKET_VERIFICATION_SECONDES", "30"))
 
