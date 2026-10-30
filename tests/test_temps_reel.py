@@ -163,6 +163,34 @@ def test_un_joueur_exclu_ne_peut_plus_se_reabonner(app, decor):
     assert _suivre_equipe(exclu, decor.id_equipe) == {"ok": False}
 
 
+def test_une_exclusion_pendant_l_abonnement_ne_laisse_pas_le_joueur_dans_le_salon(app, decor, monkeypatch):
+    """Audit V-07 : l'exclusion arrive entre la vérification des droits et l'entrée dans le salon.
+
+    Son « retirer du salon » passe alors AVANT l'entrée : sans revérification, le joueur
+    exclu resterait dans le salon et lirait les messages de l'équipe jusqu'à sa reconnexion.
+    """
+    from project_organizer import sockets
+    from project_organizer.services import espace_service
+
+    connexion = _connecter(app, decor.joueur)
+    vraie_regle = espace_service.autoriser_abonnement
+    appels = []
+
+    def regle_puis_exclusion(*args):
+        autorise = vraie_regle(*args)
+        if not appels:
+            decor.capitaine.delete(f"/api/equipes/{decor.id_equipe}/membres/{decor.joueur.id_utilisateur}")
+        appels.append(autorise)
+        return autorise
+
+    monkeypatch.setattr(sockets.espace_service, "autoriser_abonnement", regle_puis_exclusion)
+
+    assert _suivre_equipe(connexion, decor.id_equipe) == {"ok": False}
+    connexion.get_received()
+    poster(decor.capitaine, decor.id_equipe, "réservé à l'équipe")
+    assert _evenements(connexion, "message:nouveau") == []
+
+
 def test_l_exclusion_coupe_toutes_les_connexions_du_joueur(app, decor):
     onglet_1, onglet_2 = _connecter(app, decor.joueur), _connecter(app, decor.joueur)
     _suivre_equipe(onglet_1, decor.id_equipe)

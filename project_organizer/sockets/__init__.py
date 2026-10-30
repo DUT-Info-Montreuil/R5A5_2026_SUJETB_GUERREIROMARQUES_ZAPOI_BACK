@@ -305,7 +305,17 @@ def suivre_equipe(donnees):
     ):
         metriques.abonnement_refuse()
         return {"ok": False}
-    return {"ok": _entrer_dans_le_salon(salon_equipe(id_equipe))}
+    if not _entrer_dans_le_salon(salon_equipe(id_equipe)):
+        return {"ok": False}
+    # Revérifié APRÈS l'entrée : une exclusion validée entre la première vérification et
+    # join_room a retiré le joueur d'un salon où il n'était pas encore, puis il y serait
+    # entré. Toute révocation passe soit avant cette lecture (refus ici), soit après
+    # l'entrée (et son leave_room l'en retire alors).
+    if not espace_service.autoriser_abonnement(id_equipe, identite["id"], identite["ver"]):
+        leave_room(salon_equipe(id_equipe))
+        metriques.abonnement_refuse()
+        return {"ok": False}
+    return {"ok": True}
 
 
 @socketio.on("equipe:quitter")
