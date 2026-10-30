@@ -12,7 +12,7 @@ pour fonctionner.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Organisation du code, règles entre les couches, conventions |
 | [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Contrat figé entre le front et le back |
 | [`docs/TESTS_DROITS_ACCES.md`](docs/TESTS_DROITS_ACCES.md) | Chaque règle d'accès du sujet, avec le test qui la prouve |
-| [`API.md`](API.md) | Routes, temps réel, limites connues |
+| [`API.md`](API.md) | Routes, temps réel, correspondance avec les exigences |
 | [`docs/decisions/`](docs/decisions/) | Fiches de décision |
 | [`.env.example`](.env.example) | Toutes les variables de configuration, commentées |
 

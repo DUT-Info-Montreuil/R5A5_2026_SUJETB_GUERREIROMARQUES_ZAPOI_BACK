@@ -42,7 +42,7 @@ R5A5_..._BACK/
 ├── .env.example                Modèle de configuration (le .env n'est pas versionné)
 ├── .gitattributes              Fins de ligne LF pour les scripts et configurations (Windows)
 ├── .dockerignore               Ce qui n'entre pas dans l'image
-├── API.md                      Routes, temps réel, limites connues
+├── API.md                      Routes, temps réel, correspondance avec les exigences
 ├── CLAUDE.md                   Règles de travail avec l'assistant
 ├── sql/
 │   ├── schema_R5A5_sujetB.sql  Source de vérité du schéma

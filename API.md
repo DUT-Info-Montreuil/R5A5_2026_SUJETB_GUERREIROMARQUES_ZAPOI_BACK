@@ -259,7 +259,7 @@ chacune : [`docs/TESTS_DROITS_ACCES.md`](docs/TESTS_DROITS_ACCES.md).
   apprenne plus.
 - **Le désistement dissout l'équipe** : un capitaine seul, qui n'a personne à qui
   passer la main, ne peut pas quitter son équipe (`422`) mais peut la dissoudre
-  (`DELETE /api/equipes/{id}`), tant que les inscriptions sont ouvertes (voir §7).
+  (`DELETE /api/equipes/{id}`), tant que les inscriptions sont ouvertes (une fois closes, l'équipe est dans l'arbre).
 
 ---
 

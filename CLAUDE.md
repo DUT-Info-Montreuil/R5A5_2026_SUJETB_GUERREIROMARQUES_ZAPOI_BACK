@@ -103,8 +103,7 @@ Claude le signale et demande confirmation.
 | Jeu de démonstration : `python scripts/donnees_demo.py` | ✅ |
 | Fiches de décision, rapport IA | ⏳ à écrire **par l'étudiant** |
 
-Limites connues (état en mémoire, un seul processus, désistement seulement avant la clôture…) :
-`API.md` §7. Preuve des droits d'accès, exigence par exigence : `docs/TESTS_DROITS_ACCES.md`.
+Preuve des droits d'accès, exigence par exigence : `docs/TESTS_DROITS_ACCES.md`.
 
 Le détail route par route est dans [`API.md`](API.md).
 
@@ -198,7 +197,7 @@ Modèle à recopier : le trajet de `/health`, ou `tournoi_*` pour une ressource 
   (`text(...)` avec `:nom`) ou ORM.
 - Mots de passe : argon2, 12 caractères minimum ; connexion limitée à 5 par
   minute, inscription à 10 par heure ; même message d'erreur que l'e-mail existe
-  ou non (à la connexion — l'inscription, elle, le révèle : `API.md` §7).
+  ou non (à la connexion — l'inscription, elle, le révèle : `409` sur l'e-mail déjà pris).
 
 ---
 
