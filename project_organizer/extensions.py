@@ -12,6 +12,7 @@ from flask_limiter.util import get_remote_address
 from flask_pydantic_spec import FlaskPydanticSpec
 from flask_socketio import SocketIO
 
+from .config import Config
 from .utils.erreurs import apres_validation, avant_validation
 
 # async_mode="threading" : fonctionne avec le serveur de développement de Flask
@@ -36,4 +37,9 @@ jwt = JWTManager()
 
 # Limitation de débit par adresse. Stockage en mémoire : suffisant pour un seul
 # processus ; plusieurs instances demanderaient un stockage partagé (Redis).
-limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+# `application_limits` : un plafond global par adresse, en plus des plafonds de chaque route.
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri="memory://",
+    application_limits=[Config.LIMITE_GLOBALE],
+)
