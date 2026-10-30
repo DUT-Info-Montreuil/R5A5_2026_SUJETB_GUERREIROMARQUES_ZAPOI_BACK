@@ -100,8 +100,8 @@ COMMENT ON COLUMN utilisateur.est_administrateur IS
     'Seul rôle global. Capitaine et joueur sont contextuels (table composer).
      Relu en base à chaque requête : le jeton ne fait pas foi sur les droits.';
 COMMENT ON COLUMN utilisateur.mot_de_passe_hash IS
-    'Empreinte calculée par werkzeug.security (scrypt). Jamais de mot de passe
-     en clair.';
+    'Empreinte argon2 (argon2-cffi, utils/mots_de_passe.py). Jamais de mot de
+     passe en clair.';
 COMMENT ON COLUMN utilisateur.version_jeton IS
     'Permet de révoquer les jetons JWT, qui ne sont pas révocables par nature.
      Le jeton embarque cette valeur à l''émission ; le serveur la compare à
