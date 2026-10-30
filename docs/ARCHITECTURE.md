@@ -33,10 +33,17 @@ répercuter.
 
 ```
 R5A5_..._BACK/
-├── docker-compose.yml          PostgreSQL 16 + Adminer
+├── docker-compose.yml          Développement : PostgreSQL 16 + Adminer
+├── docker-compose.complet.yml  Toute la pile : base + API + interface (+ profil « demo »)
+├── Dockerfile                  Image de l'API (gunicorn, utilisateur sans droits)
+├── docker-entrypoint.sh        Génère une clé de session temporaire si FLASK_SECRET_KEY est absente
 ├── requirements.txt            Dépendances, versions figées
 ├── pytest.ini
 ├── .env.example                Modèle de configuration (le .env n'est pas versionné)
+├── .gitattributes              Fins de ligne LF pour les scripts et configurations (Windows)
+├── .dockerignore               Ce qui n'entre pas dans l'image
+├── API.md                      Routes, temps réel, limites connues
+├── CLAUDE.md                   Règles de travail avec l'assistant
 ├── sql/
 │   ├── schema_R5A5_sujetB.sql  Source de vérité du schéma
 │   └── tests_contraintes.sql   Tests d'intégrité, joués à la création du conteneur
@@ -48,7 +55,12 @@ R5A5_..._BACK/
 │   ├── test_socle.py           Vérifie que l'architecture tient ses promesses
 │   ├── test_protection.py      Toute route non publique exige un jeton
 │   ├── test_authentification.py, test_tournois.py, test_arbre.py, test_cycle_tournoi.py
-│   ├── test_equipes.py, test_demandes.py, test_moi.py       Droits d'accès des équipes
+│   ├── test_equipes.py, test_demandes.py, test_desistement.py, test_moi.py   Droits d'accès des équipes
+│   ├── test_administrateur_joueur.py   L'administrateur ne participe pas aux tournois
+│   ├── test_revocation.py      Déconnexion : le jeton est révoqué
+│   ├── test_origine.py         Écritures refusées depuis une origine étrangère
+│   ├── test_cache_http.py      ETag, no-store
+│   ├── test_limites_et_journal.py   Plafond global, niveaux des traces, algorithme du jeton
 │   ├── test_messages.py        Espace d'échange : règle d'accès unique
 │   ├── test_temps_reel.py, test_temps_reel_limites.py       Socket : droits, plafonds, métriques
 │   ├── test_complements_securite.py   Cookie, journal des refus, proxy
@@ -57,8 +69,9 @@ R5A5_..._BACK/
 └── project_organizer/
     ├── __main__.py             Lancement : python -m project_organizer
     ├── app.py                  Fabrique de l'application
+    ├── wsgi.py                 Point d'entrée de gunicorn (production)
     ├── config.py               Lecture des variables d'environnement
-    ├── extensions.py           Instances partagées : socketio, spec (documentation)
+    ├── extensions.py           Instances partagées : socketio, spec (documentation), jwt, limiter
     │
     ├── controllers/            HTTP ↔ services            (modèle : sante_controller.py)
     ├── dtos/                   Modèles Pydantic d'entrée/sortie (base.py, modèle : sante_dto.py)
@@ -67,9 +80,10 @@ R5A5_..._BACK/
     ├── models/                 Modèles ORM, une classe par table (types.py : ENUM PostgreSQL)
     ├── sockets/                Événements temps réel : identité, abonnements, plafonds (__init__.py), diffusion après commit (diffusion.py)
     └── utils/
-        ├── database.py         Moteur et sessions transactionnelles
+        ├── database.py         Sessions transactionnelles sur le moteur SQLAlchemy
         ├── journalisation.py   Logs sur la sortie standard, en JSON
-        ├── requetes.py         Une ligne de log par requête HTTP
+        ├── requetes.py         Une ligne de log par requête HTTP, niveau selon le statut
+        ├── origine.py          Refus des écritures venues d'une origine non autorisée
         ├── erreurs.py          Erreurs métier → format du contrat
         ├── authentification.py Jeton en cookie, @publique, @administrateur_requis
         ├── mots_de_passe.py    Hachage argon2

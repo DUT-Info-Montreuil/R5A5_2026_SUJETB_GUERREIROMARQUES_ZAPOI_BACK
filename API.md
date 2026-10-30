@@ -7,11 +7,11 @@ reste à faire. Il ne remplace pas deux autres sources :
 | Source | À utiliser pour |
 |---|---|
 | **Swagger** — http://localhost:5000/apidoc/swagger (serveur démarré) | Les schémas exacts (corps, réponses, codes d'erreur), générés **depuis le code** : ils ne peuvent pas mentir. Brut : `/apidoc/openapi.json` |
-| [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Les règles transverses et les décisions (identique dans le dépôt front). Version 8 |
+| [`docs/CONTRAT_API.md`](docs/CONTRAT_API.md) | Les règles transverses et les décisions (identique dans le dépôt front). Version 15 |
 | `API.md` (ce fichier) | Vue d'ensemble, démarrage rapide, état d'avancement, temps réel |
 
 > État documenté : toutes les exigences B-01 à B-19 sont codées et testées
-> (236 tests). Légende : ✅ implémenté et testé · ⏳ prévu, pas encore codé.
+> (`python -m pytest`, plus de 300 tests). Légende : ✅ implémenté et testé.
 
 ---
 
@@ -86,7 +86,7 @@ Toute erreur imprévue renvoie un `500` générique : la trace reste dans les lo
 | 409 | Conflit avec l'**état** : transition impossible, rencontre déjà jouée, pseudo pris |
 | 413 | Corps de requête de plus de 1 Mio |
 | 422 | Violation d'une **règle métier** : vainqueur qui ne joue pas la rencontre, poste déjà occupé… |
-| 429 | Plus de 5 tentatives de connexion par minute, ou de 10 inscriptions par heure, par adresse ; ou plus de 30 messages de chat par minute et par utilisateur |
+| 429 | Plus de 5 tentatives de connexion par minute, ou de 10 inscriptions par heure, par adresse ; plus de 30 messages de chat par minute et par utilisateur ; ou plus de 1 200 requêtes par minute et par adresse, toutes routes confondues (`/health` excepté) |
 
 409 pour ce qui dépend du **cycle de vie** du tournoi, 422 pour ce qui dépend
 des **règles de composition ou de jeu**.
@@ -257,9 +257,9 @@ chacune : [`docs/TESTS_DROITS_ACCES.md`](docs/TESTS_DROITS_ACCES.md).
   d'échange d'une autre équipe, demandes d'une équipe dont on n'est pas
   capitaine). Chaque refus est tracé en `WARNING`, sans que l'appelant en
   apprenne plus.
-- **Aucune suppression d'équipe** : un capitaine seul ne peut pas quitter son
-  équipe tant qu'il n'a pas passé la main (`422`), et il n'a personne à qui la
-  passer. Limite connue, à justifier (voir §7).
+- **Le désistement dissout l'équipe** : un capitaine seul, qui n'a personne à qui
+  passer la main, ne peut pas quitter son équipe (`422`) mais peut la dissoudre
+  (`DELETE /api/equipes/{id}`), tant que les inscriptions sont ouvertes (voir §7).
 
 ---
 
@@ -281,7 +281,7 @@ socket.on('rencontre:maj', (rencontre) => { /* … */ });
 | Salon | Qui peut s'abonner | État |
 |---|---|---|
 | `tournoi:{idTournoi}` | Tout le monde, même sans compte (B-19) | ✅ |
-| `equipe:{idEquipe}` | Membres d'une équipe en lice, selon la règle d'accès du contrat §6 (jamais l'administrateur : il lit par HTTP) | ✅ |
+| `equipe:{idEquipe}` | Membres d'une équipe en lice, et administrateurs (lecture seule : ils n'écrivent pas), selon la règle d'accès du contrat §6 | ✅ |
 | `utilisateur:{idUtilisateur}` | Interne : le serveur y place chaque connexion authentifiée pour pouvoir lui retirer ses accès (B-17) | ✅ |
 
 ### Client → serveur
@@ -347,7 +347,7 @@ par HTTP à la reconnexion (motif « snapshot puis deltas »).
 | B-05 créer une équipe | ✅ | `POST /api/tournois/{id}/equipes` |
 | B-06 demander à rejoindre / quitter | ✅ | demandes, `DELETE …/membres/{id}` |
 | B-07 une équipe par tournoi | ✅ | contrainte SQL **et** règle de service (`422`) |
-| B-08 cinq joueurs avec un rôle | ✅ | attribution `PATCH …/membres/{id}` ; au lancement, un membre sans poste rend l'équipe incomplète |
+| B-08 des joueurs avec un rôle | ✅ | l'effectif dépend du jeu (`joueursParEquipe` : 1, 3, 4, 5 ou 6) ; attribution `PATCH …/membres/{id}` ; au lancement, un membre sans poste rend l'équipe incomplète |
 | B-09 gérer son équipe (capitaine) | ✅ | renommer, postes, passation, exclusion |
 | B-10 seul le capitaine touche à l'équipe | ✅ | `403`/`404` testés, administrateur compris |
 | B-11 composition figée après clôture | ✅ | `409` testé sur chaque écriture |
@@ -396,5 +396,11 @@ des oublis. Les justifications vont dans les fiches de décision.
    (`LIMITE_INSCRIPTION`), contre 5 par minute pour la connexion.
 8. **L'équipe victorieuse perd son espace d'échange** à la fin du tournoi
    (statut `VAINQUEUR`, la règle d'accès demande `EN_LICE`).
-9. **Serveur de production non testé ici** (Nginx, arrêt progressif,
-   `proxy_read_timeout`) : voir la passation cloud.
+9. **Pas de déploiement hors Docker testé** : la pile complète (`docker-compose.complet.yml`)
+   fait tourner gunicorn derrière nginx, mais aucun hébergeur n'a été essayé. Avant
+   une vraie mise en ligne : `COOKIE_SECURE=true` (HTTPS), `FLASK_SECRET_KEY` fixée,
+   mots de passe de la base changés, `proxy_read_timeout` de nginx supérieur au ping
+   du socket (20 s).
+10. **Plafond global de requêtes en mémoire** (`LIMITE_GLOBALE`, 1 200 par minute et
+   par adresse) : comme les autres limiteurs, il repart de zéro au redémarrage et
+   ne se partage pas entre plusieurs processus.

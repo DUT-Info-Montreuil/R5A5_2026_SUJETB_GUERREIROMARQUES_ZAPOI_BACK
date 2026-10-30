@@ -14,6 +14,7 @@ pour fonctionner.
 | [`docs/TESTS_DROITS_ACCES.md`](docs/TESTS_DROITS_ACCES.md) | Chaque règle d'accès du sujet, avec le test qui la prouve |
 | [`API.md`](API.md) | Routes, temps réel, limites connues |
 | [`docs/decisions/`](docs/decisions/) | Fiches de décision |
+| [`.env.example`](.env.example) | Toutes les variables de configuration, commentées |
 
 ---
 
@@ -207,6 +208,89 @@ Si `/health` répond `"statut": "ok"` avec `"tables": 9`, tout est en place.
 
 ---
 
+## Développer avec le front
+
+Trois terminaux, dans cet ordre :
+
+| Terminal | Dossier | Commande | Adresse |
+|---|---|---|---|
+| 1 | `back` | `docker compose up -d` (base seule) | Adminer : http://localhost:8080 |
+| 2 | `back` | `python -m project_organizer` | API : http://localhost:5000 |
+| 3 | `front` | `npm ci` puis `npm run dev` | Site : **http://localhost:5173** |
+
+Ouvrir le site à `http://localhost:5173` et **pas** `http://127.0.0.1:5173` : l'API
+n'accepte que les origines de `CORS_ORIGINS`. La page `/diagnostic` du front dit
+si l'API, la base et le temps réel répondent.
+
+---
+
+## Configuration : les variables d'environnement
+
+Elles se lisent dans le fichier `.env` (modèle : `.env.example`, commenté ligne
+par ligne) ou dans l'environnement. Seules `DATABASE_URL` et `FLASK_SECRET_KEY`
+sont obligatoires ; l'API refuse de démarrer sans elles.
+
+| Variable | Rôle | Défaut |
+|---|---|---|
+| `DATABASE_URL` | Connexion PostgreSQL (pilote `pg8000`) | — (obligatoire) |
+| `FLASK_SECRET_KEY` | Clé de signature des jetons, 32 caractères minimum | — (obligatoire) |
+| `CORS_ORIGINS` | Origines autorisées (API et WebSocket), séparées par des virgules | `http://localhost:5173` |
+| `JWT_EXPIRATION_MINUTES` | Durée de la session | `720` (12 h) |
+| `COOKIE_SECURE` | Cookie envoyé seulement en HTTPS | `false` |
+| `LIMITE_CONNEXION` / `LIMITE_INSCRIPTION` | Essais par adresse | `5 per minute` / `10 per hour` |
+| `LIMITE_MESSAGES` | Messages de chat par utilisateur | `30 per minute` |
+| `LIMITE_GLOBALE` | Requêtes par adresse, toutes routes (`/health` excepté) | `1200 per minute` |
+| `HOTE` / `PORT` | Adresse et port d'écoute | `127.0.0.1` / `5000` |
+| `FLASK_DEBUG` | Mode debug de Flask, développement seulement | `false` |
+| `LOG_LEVEL` / `LOG_FORMAT` | Niveau (`DEBUG`…`ERROR`) et format (`json` ou `texte`) des logs | `INFO` / `json` |
+| `PROXIES_DE_CONFIANCE` | Nombre de reverse proxys devant l'API (1 derrière nginx) | `0` |
+| `SOCKET_*` | Heartbeat, taille et débit des messages, connexions par adresse (voir `API.md` §5) | voir `.env.example` |
+
+---
+
+## Docker : quel fichier fait quoi
+
+| Fichier | Rôle |
+|---|---|
+| `docker-compose.yml` | **Développement** : PostgreSQL 16 (port `127.0.0.1:5432`) et Adminer. L'API tourne sur la machine. |
+| `docker-compose.complet.yml` | **Toute la pile** : `db` (PostgreSQL), `api` (gunicorn), `front` (nginx qui sert le site et relaie `/api` et `/socket.io`), et `demo` (profil à la demande : données de démonstration). |
+| `Dockerfile` | Image de l'API : Python 3.13, gunicorn (un processus, 100 threads), utilisateur sans droits, contrôle de santé sur `/health`. |
+| `docker-entrypoint.sh` | Tire une clé de session au hasard si `FLASK_SECRET_KEY` est absente, puis lance la commande. |
+| `.dockerignore` | Garde hors de l'image les tests, la documentation, `.env`, les caches. |
+| `.gitattributes` | Force les fins de ligne LF (voir la note « Fins de ligne » plus haut). |
+
+Le dossier `sql/` est monté dans la base et rejoué **à la création du volume
+seulement** : schéma, douze jeux et leurs postes, puis les tests d'intégrité.
+
+---
+
+## Organisation du dépôt
+
+```
+project_organizer/   Le code : controllers → services → repository → models
+                     (+ dtos, sockets, utils), voir docs/ARCHITECTURE.md
+sql/                 Schéma de la base (source de vérité) et tests d'intégrité
+scripts/             donnees_demo.py : comptes et tournois de démonstration
+tests/               Suite pytest (droits d'accès, temps réel, journalisation…)
+docs/                Contrat d'API, architecture, droits d'accès, décisions
+```
+
+---
+
+## Mise en ligne : ce qu'il faut changer
+
+Les valeurs fournies sont celles du développement local. Avant d'exposer l'API
+à d'autres personnes :
+
+- `COOKIE_SECURE=true` (le site doit être servi en HTTPS) ;
+- une `FLASK_SECRET_KEY` fixe et secrète (sinon les sessions sautent à chaque redémarrage) ;
+- un autre mot de passe pour la base que `r5a5`, hors du dépôt ;
+- `CORS_ORIGINS` = l'adresse publique du site ; `PROXIES_DE_CONFIANCE=1` derrière nginx ;
+- `LOG_FORMAT=json` pour que les logs soient exploitables ;
+- ne **pas** lancer `donnees_demo.py` : ses mots de passe sont publics.
+
+---
+
 ## Comptes et données de démonstration
 
 Pour essayer le site avec des comptes déjà prêts (**local uniquement**) :
@@ -235,6 +319,10 @@ Pour tester plusieurs profils en même temps, utiliser des fenêtres de navigati
 ```bash
 python -m pytest
 ```
+
+La base doit tourner (`docker compose up -d`) : les tests utilisent
+`DATABASE_URL`, par défaut celle du `docker-compose.yml`. Un test précis :
+`python -m pytest -k test_un_joueur_exclu_perd_l_acces_tout_de_suite`.
 
 Les tests notés portent sur les **droits d'accès** : pour chaque règle du
 sujet, un test vérifie qu'un utilisateur non autorisé est bien refusé.
