@@ -1,0 +1,11 @@
+# Fins de ligne : Git pour Windows convertit en CRLF à l'extraction par défaut, ce qui
+# casse les scripts exécutés dans un conteneur Linux (« no such file or directory »).
+# Ces fichiers restent en LF partout.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.conf text eol=lf
+*.py text eol=lf
+*.env.example text eol=lf

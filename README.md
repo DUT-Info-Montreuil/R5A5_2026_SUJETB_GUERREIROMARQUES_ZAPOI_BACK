@@ -17,55 +17,106 @@ pour fonctionner.
 
 ---
 
-## Démarrage rapide : toute la pile avec Docker
+## Versions utilisées
 
-Pour voir le site fonctionner sans rien installer d'autre que Docker : la base,
-l'API et l'interface démarrent ensemble, derrière un seul port.
+Ce sont celles avec lesquelles le projet est testé (plus de 300 tests du back,
+tests du front, parcours dans un vrai navigateur). D'autres versions
+récentes fonctionneront sans doute, mais elles n'ont pas été vérifiées.
 
-```bash
-mkdir agon-cup && cd agon-cup
-git clone <adresse du dépôt back>  back
-git clone <adresse du dépôt front> front
+| Outil | Version | Où elle intervient |
+|---|---|---|
+| Docker Desktop | version récente, avec `docker compose` (v2) | Lancement de toute la pile, ou de la base seule |
+| Python | **3.13** | Back (l'image Docker utilise `python:3.13-slim`) |
+| PostgreSQL | **16** | Base de données (image `postgres:16`, rien à installer) |
+| Node.js | **22** (npm 10) | Front en développement (l'image Docker utilise `node:22-alpine`) |
+| Flask / Flask-SocketIO | 3.1.3 / 5.6.1 | API et temps réel (Socket.IO) |
+| SQLAlchemy / pg8000 | 2.0.54 / 1.31.5 | Accès à la base |
+| React / Vite / TypeScript | 19 / 8.3.5 / 6.0 | Interface |
+| Git | récent | Clonage des deux dépôts |
+
+Les dépendances exactes sont figées dans `requirements.txt` (back) et
+`package-lock.json` (front).
+
+---
+
+## Démarrage rapide sous Windows : toute la pile avec Docker
+
+C'est le chemin recommandé pour **voir le site fonctionner** (par exemple pour la
+correction). Il ne demande que **Docker Desktop** (démarré, avec l'intégration
+WSL 2 activée, qui est le réglage par défaut) et **Git**. Ni Python, ni Node, ni
+PostgreSQL à installer. Commandes à lancer dans **PowerShell** :
+
+```powershell
+mkdir agon-cup
+cd agon-cup
+git clone https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK.git back
+git clone https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_FRONT.git front
 cd back
 docker compose -f docker-compose.complet.yml up --build
 ```
 
-Quand les trois services sont `healthy` (1 à 3 minutes la première fois, le
-temps de construire les images), ouvrir **http://localhost:8080**.
+Les deux dépôts doivent être **côte à côte** (`back` et `front` dans le même
+dossier) : le Compose du back construit l'image du front depuis `..\front`.
+(PowerShell 5 ne comprend pas `&&` : les commandes sont donc sur des lignes séparées.)
 
-Pour ajouter les comptes et tournois de démonstration, dans un second terminal :
+Attendre que les trois services (`db`, `api`, `front`) soient `healthy` : 1 à 3
+minutes la première fois, le temps de construire les images. Puis ouvrir
+**http://localhost:8080**.
 
-```bash
+Pour ajouter les comptes et tournois de démonstration, dans **un second
+PowerShell**, depuis le dossier `back` :
+
+```powershell
 docker compose -f docker-compose.complet.yml --profile demo run --rm demo
 ```
 
 La commande affiche les identifiants (`admin@agon-cup.fr`, `joueur01@demo.iut.fr`…)
-et quoi essayer avec chacun. Arrêter : `Ctrl+C`, puis
-`docker compose -f docker-compose.complet.yml down` (ajouter `-v` pour effacer la base).
+et quoi essayer avec chacun. Le chargement dure une à deux minutes. Sans lui, le
+site est **vide** : ni jeux joués, ni équipes, ni tournois. (Les douze jeux, eux,
+sont toujours là.)
 
-| Réglage (variable d'environnement) | Rôle | Défaut |
+Arrêter : `Ctrl+C`, puis `docker compose -f docker-compose.complet.yml down`
+(ajouter `-v` pour effacer la base et repartir de zéro).
+
+| Réglage | Rôle | Défaut |
 |---|---|---|
 | `PORT_WEB` | Port de l'interface | `8080` |
 | `CHEMIN_FRONT` | Dossier du dépôt front | `../front` |
 | `FLASK_SECRET_KEY` | Clé de signature des sessions | tirée au hasard à chaque démarrage |
+
+Pour changer un réglage sous PowerShell : `$env:PORT_WEB = "8090"` avant la
+commande `docker compose`.
 
 L'interface (nginx) sert le site **et** relaie `/api` et le WebSocket vers l'API :
 le navigateur ne parle qu'à `localhost:8080`, ce qui évite tout réglage CORS.
 Le serveur de l'API est **gunicorn** (un processus, 100 threads), pas le serveur
 de développement de Flask.
 
+> **Mise à jour du code.** Après un `git pull` dans les deux dossiers, relancer
+> `docker compose -f docker-compose.complet.yml up --build`. Si le schéma ou le
+> catalogue de jeux a changé : `down -v` d'abord (le dossier `sql/` n'est rejoué
+> qu'à la création de la base).
+
+> **Fins de ligne.** Le dépôt contient un `.gitattributes` qui force les fins de
+> ligne Unix (LF) pour `docker-entrypoint.sh`, les scripts SQL et les
+> configurations. Sans lui, Git pour Windows les convertit en CRLF et le conteneur
+> de l'API ne démarre pas (`no such file or directory`). Si vous aviez cloné le
+> dépôt **avant** l'ajout de ce fichier : `git rm --cached -r .` puis
+> `git reset --hard`, ou simplement recloner.
+
 Pour **développer** (rechargement automatique, tests), suivre l'installation
 ci-dessous : la base seule dans Docker, l'API et le front sur la machine.
 
 ---
 
-## Prérequis
+## Prérequis (développement)
 
-- **Docker** (Docker Desktop sous Windows ou macOS) — pour PostgreSQL
-- **Python 3.11 ou plus récent**
+- **Docker Desktop** — pour PostgreSQL
+- **Python 3.13**
+- **Node.js 22** — pour le front, voir son dépôt
 - **Git**
 
-Rien d'autre : PostgreSQL n'est **pas** à installer sur la machine.
+PostgreSQL n'est **pas** à installer sur la machine.
 
 ---
 
@@ -87,7 +138,9 @@ docker compose ps        # r5a5_db doit être « healthy »
 ```
 
 Une interface d'inspection (Adminer) est disponible sur `http://localhost:8080` :
-serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournois`.
+serveur `db`, utilisateur `r5a5`, mot de passe `r5a5`, base `tournois`. Elle prend
+le même port que l'interface de la pile complète : ne pas lancer les deux ensemble
+(ou changer `PORT_WEB`).
 
 ### 2. Environnement Python
 
@@ -239,3 +292,61 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 
 Un autre PostgreSQL tourne sur la machine. Dans `docker-compose.yml`, remplacer
 `"5432:5432"` par `"5433:5432"`, puis ajuster le port dans `DATABASE_URL`.
+
+**Le site est vide (aucun tournoi, aucune équipe)**
+
+Le back ne charge **jamais** de données tout seul. Les douze jeux viennent du
+schéma SQL, à la création de la base ; les comptes et les tournois de démonstration
+viennent du script `scripts/donnees_demo.py` (ou, avec Docker, de la commande
+`--profile demo run --rm demo`). À lancer une fois.
+
+**« L'API est injoignable » alors que le back est démarré**
+
+Souvent, **un autre programme occupe déjà le port 5000** (une ancienne instance du
+back restée en arrière-plan, ou un autre projet). Le nouveau back démarre sans
+erreur, mais le navigateur parle à l'ancien. Test : ouvrir
+`http://localhost:5000/health`. Une page « Not Found » en HTML, ou du JSON qui ne
+commence pas par `{"baseDeDonnees"`, montre que ce n'est pas notre API. Qui occupe
+le port, sous PowerShell :
+
+```powershell
+Get-NetTCPConnection -LocalPort 5000 | Select-Object LocalAddress, State, OwningProcess
+Get-Process -Id <numéro affiché> | Select-Object Id, ProcessName, Path
+Stop-Process -Id <numéro> -Force
+```
+
+Ou changer de port : `PORT=5001` dans le `.env` du back, et
+`VITE_API_URL=http://localhost:5001` dans le `.env` du front.
+
+**Le temps réel ne charge pas (l'arbre ou le chat ne se mettent pas à jour)**
+
+Ouvrir la page `/diagnostic` du front : elle dit si « Temps réel » répond, et
+pourquoi sinon. Causes à vérifier, dans cet ordre :
+
+1. **Le site est ouvert à une autre adresse que celle autorisée.** Le back
+   n'accepte que `CORS_ORIGINS` (par défaut `http://localhost:5173`) : ouvrir
+   `http://localhost:5173`, pas `http://127.0.0.1:5173`.
+2. **Le plafond de connexions par adresse est atteint.** L'API limite à 20
+   connexions temps réel simultanées par adresse IP (`SOCKET_CONNEXIONS_MAX_PAR_ADRESSE`).
+   Après beaucoup de rechargements, ou avec beaucoup d'onglets ouverts, les
+   suivantes sont refusées. Le journal du back dit alors
+   `Connexion temps réel refusée : trop de connexions depuis cette adresse`.
+   Redémarrer le back remet le compteur à zéro ; en développement, on peut aussi
+   relever le plafond dans le `.env` (`SOCKET_CONNEXIONS_MAX_PAR_ADRESSE=200`).
+3. **Les dépendances ne sont pas à jour.** Après un `git pull` :
+   `python -m pip install -r requirements.txt` (le temps réel a besoin de
+   `Flask-SocketIO` et de `simple-websocket`).
+4. **Un pare-feu ou un antivirus coupe le WebSocket.** Dans la console du
+   navigateur (F12, onglet Réseau, filtre « WS »), la connexion `socket.io`
+   doit afficher le statut 101. Sinon, noter le message d'erreur.
+
+**Un message « 429 » (trop de requêtes) à la connexion**
+
+La connexion est limitée à 5 essais par minute et par adresse, l'inscription à
+10 par heure. Attendre une minute.
+
+**Docker : `exec ./docker-entrypoint.sh: no such file or directory`**
+
+Le script a été extrait avec des fins de ligne Windows (CRLF). Voir la note
+« Fins de ligne » plus haut : recloner le dépôt, ou `git rm --cached -r .` puis
+`git reset --hard`.
