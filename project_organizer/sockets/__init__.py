@@ -31,7 +31,7 @@ les messages entrants »).
 import logging
 import threading
 import time
-from collections import deque
+from collections import Counter, deque
 from functools import wraps
 
 from flask import request
@@ -53,6 +53,10 @@ _CONNEXIONS: dict[str, dict] = {}
 _EVENEMENTS_RECENTS: dict[str, deque[float]] = {}
 # Connexions déjà coupées pour débit : leurs derniers événements en file ne sont pas recomptés.
 _COUPEES_POUR_DEBIT: set[str] = set()
+# Connexions ouvertes par adresse IP, et adresse de chaque connexion pour la décompter à la fermeture.
+_CONNEXIONS_PAR_ADRESSE: Counter[str] = Counter()
+_ADRESSE_DE_LA_CONNEXION: dict[str, str] = {}
+_verrou_adresses = threading.Lock()
 
 _verrou_surveillance = threading.Lock()
 _surveillance_demarree = False
@@ -78,6 +82,8 @@ def _identifier_le_client() -> dict | None:
 def connexion():
     """À l'ouverture : identifie le client d'après son cookie (visiteur sinon), le place dans son salon personnel et l'accueille.
     """
+    if not _reserver_une_place():
+        return False
     identite = _identifier_le_client()
     if identite is not None:
         _CONNEXIONS[request.sid] = identite
@@ -97,8 +103,45 @@ def deconnexion(*_):
     identite = _CONNEXIONS.pop(request.sid, None)
     _EVENEMENTS_RECENTS.pop(request.sid, None)
     _COUPEES_POUR_DEBIT.discard(request.sid)
+    _liberer_la_place(request.sid)
     metriques.fermeture(authentifiee=identite is not None)
     logger.info("Client temps réel déconnecté", extra={"contexte": {"idSocket": request.sid}})
+
+
+# --- Plafond de connexions par adresse ---------------------------------------------------
+
+def _reserver_une_place() -> bool:
+    """Compte la connexion qui s'ouvre ; faux si son adresse a déjà atteint le plafond.
+
+    Le plafond d'événements est par connexion : sans celui-ci, un client qui ouvre des
+    centaines de connexions occuperait tous les threads du serveur (une connexion = un thread).
+    """
+    adresse = request.remote_addr or "inconnue"
+    with _verrou_adresses:
+        if _CONNEXIONS_PAR_ADRESSE[adresse] >= Config.SOCKET_CONNEXIONS_MAX_PAR_ADRESSE:
+            refusee = True
+        else:
+            refusee = False
+            _CONNEXIONS_PAR_ADRESSE[adresse] += 1
+            _ADRESSE_DE_LA_CONNEXION[request.sid] = adresse
+    if refusee:
+        metriques.connexion_refusee()
+        logger.warning(
+            "Connexion temps réel refusée : trop de connexions depuis cette adresse",
+            extra={"contexte": {"plafond": Config.SOCKET_CONNEXIONS_MAX_PAR_ADRESSE}},
+        )
+    return not refusee
+
+
+def _liberer_la_place(sid: str) -> None:
+    """Décompte une connexion qui se ferme."""
+    with _verrou_adresses:
+        adresse = _ADRESSE_DE_LA_CONNEXION.pop(sid, None)
+        if adresse is None:
+            return
+        _CONNEXIONS_PAR_ADRESSE[adresse] -= 1
+        if _CONNEXIONS_PAR_ADRESSE[adresse] <= 0:
+            del _CONNEXIONS_PAR_ADRESSE[adresse]
 
 
 # --- Plafond d'événements par connexion -------------------------------------------------
@@ -262,7 +305,17 @@ def suivre_equipe(donnees):
     ):
         metriques.abonnement_refuse()
         return {"ok": False}
-    return {"ok": _entrer_dans_le_salon(salon_equipe(id_equipe))}
+    if not _entrer_dans_le_salon(salon_equipe(id_equipe)):
+        return {"ok": False}
+    # Revérifié APRÈS l'entrée : une exclusion validée entre la première vérification et
+    # join_room a retiré le joueur d'un salon où il n'était pas encore, puis il y serait
+    # entré. Toute révocation passe soit avant cette lecture (refus ici), soit après
+    # l'entrée (et son leave_room l'en retire alors).
+    if not espace_service.autoriser_abonnement(id_equipe, identite["id"], identite["ver"]):
+        leave_room(salon_equipe(id_equipe))
+        metriques.abonnement_refuse()
+        return {"ok": False}
+    return {"ok": True}
 
 
 @socketio.on("equipe:quitter")

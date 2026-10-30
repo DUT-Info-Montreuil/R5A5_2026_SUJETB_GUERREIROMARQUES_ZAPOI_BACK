@@ -3,13 +3,19 @@ Jeu de données de démonstration — DÉVELOPPEMENT LOCAL UNIQUEMENT.
 
     python scripts/donnees_demo.py                 crée les données (rejouable, rien n'est dupliqué)
     python scripts/donnees_demo.py --reinitialiser supprime les tournois de démonstration puis les recrée
+    python scripts/donnees_demo.py --forcer        passe outre la présence de vrais comptes (voir plus bas)
 
 Tout passe par l'API réelle (les mêmes services que le site) : l'arbre est
 généré à la clôture, les forfaits au lancement, les résultats se propagent.
 Les données sont donc cohérentes, ce qu'un script SQL ne garantirait pas.
 
 Comptes créés (mots de passe connus de tous : ne JAMAIS jouer ce script sur une
-base partagée ou en production — il refuse de s'exécuter si COOKIE_SECURE=true) :
+base partagée ou en production). Il refuse de s'exécuter :
+  - si COOKIE_SECURE=true (déploiement HTTPS) ;
+  - si la base contient déjà un compte qui n'est pas un compte de démonstration : c'est
+    une base utilisée par de vraies personnes. Ce contrôle lit la base elle-même, il
+    fonctionne donc aussi dans Docker, où le conteneur du script ne connaît pas la
+    configuration de l'API. `--forcer` passe outre, en connaissance de cause.
 
     admin@agon-cup.fr        administrateur
     joueur01@demo.iut.fr …   40 joueurs (joueur01 à joueur40), capitaines ou membres selon le tournoi
@@ -36,6 +42,7 @@ from project_organizer.utils import database, mots_de_passe  # noqa: E402
 
 ADMIN = {"pseudo": "admin", "email": "admin@agon-cup.fr", "mot_de_passe": "admin-demo-2026"}
 MOT_DE_PASSE_JOUEURS = "demo-joueurs-2026"
+DOMAINE_DES_JOUEURS = "demo.iut.fr"
 NOMBRE_DE_JOUEURS = 40
 EQUIPES = ["Hiboux", "Nova", "Zenith", "Nébula", "Orage", "Kraken", "Phénix", "Titans"]
 
@@ -146,7 +153,7 @@ class Demo:
                 crees += 1
             creer(ADMIN["pseudo"], ADMIN["email"], ADMIN["mot_de_passe"], admin=True)
             for numero in range(1, NOMBRE_DE_JOUEURS + 1):
-                creer(f"joueur{numero:02d}", f"joueur{numero:02d}@demo.iut.fr", MOT_DE_PASSE_JOUEURS)
+                creer(f"joueur{numero:02d}", f"joueur{numero:02d}@{DOMAINE_DES_JOUEURS}", MOT_DE_PASSE_JOUEURS)
         return crees
 
     # --- Scénarios --------------------------------------------------------------------------------
@@ -309,15 +316,33 @@ class Demo:
             session.execute(text("DELETE FROM tournoi WHERE nom_tournoi = ANY(:noms)"), {"noms": TOUS_LES_TOURNOIS})
 
 
+def comptes_hors_demonstration() -> int:
+    """Nombre de comptes qui ne sont pas des comptes de démonstration : s'il y en a, la base sert à de vraies personnes."""
+    with database.session() as session:
+        return session.execute(
+            text("SELECT count(*) FROM utilisateur WHERE email <> :admin AND email NOT LIKE :joueurs"),
+            {"admin": ADMIN["email"], "joueurs": f"%@{DOMAINE_DES_JOUEURS}"},
+        ).scalar_one()
+
+
 def main() -> None:
     analyseur = argparse.ArgumentParser(description="Jeu de données de démonstration (développement local uniquement).")
     analyseur.add_argument("--reinitialiser", action="store_true", help="supprime d'abord les tournois de démonstration")
+    analyseur.add_argument("--forcer", action="store_true", help="tourne même si la base contient de vrais comptes")
     arguments = analyseur.parse_args()
 
     if Config.COOKIE_SECURE:
         raise SystemExit("Refus : COOKIE_SECURE=true indique un déploiement. Ce script crée des comptes aux mots de passe connus de tous.")
 
     demo = Demo()
+    # Après Demo() : c'est lui qui crée l'application et ouvre la base.
+    autres = comptes_hors_demonstration()
+    if autres and not arguments.forcer:
+        raise SystemExit(
+            f"Refus : la base contient {autres} compte(s) qui ne sont pas des comptes de démonstration. "
+            "Ce script crée un administrateur au mot de passe connu de tous : sur une base utilisée par de vraies "
+            "personnes, n'importe qui pourrait s'y connecter. Relancer avec --forcer seulement sur une base locale."
+        )
     if arguments.reinitialiser:
         demo.reinitialiser()
     jeux = demo.preparer_les_jeux()

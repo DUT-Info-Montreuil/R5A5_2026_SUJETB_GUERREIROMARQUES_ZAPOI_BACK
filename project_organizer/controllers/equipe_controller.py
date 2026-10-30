@@ -69,8 +69,8 @@ def modifier_equipe(id_equipe: int):
     requête en 400.
 
     403 si l'appelant n'est ni capitaine de l'équipe ni administrateur ; 409 si
-    le nom est pris, si le tournoi n'est pas en cours ou si l'équipe n'est plus
-    en lice. La disqualification passe par forfait la rencontre de l'équipe et
+    le nom est pris ou si les inscriptions sont closes (renommage, B-11), si le
+    tournoi n'est pas en cours ou si l'équipe n'est plus en lice (disqualification). La disqualification passe par forfait la rencontre de l'équipe et
     émet rencontre:maj.
     """
     donnees: ModificationEquipeDto = request.context.body

@@ -84,12 +84,18 @@ def client(app):
 
 @pytest.fixture(autouse=True)
 def compteurs_de_debit_remis_a_zero(app):
-    """Chaque test repart avec ses 5 tentatives de connexion.
+    """Chaque test repart avec ses 5 tentatives de connexion, et ses 20 places de connexion temps réel.
 
     Dépend de `app` : le limiteur n'a de stockage qu'une fois attaché à
     l'application, y compris pour un test qui n'en a pas besoin lui-même.
+    Les tests ouvrent des clients socket sans les fermer : sans cette remise à zéro,
+    le plafond par adresse serait atteint au bout de quelques tests.
     """
     limiter.reset()
+    from project_organizer import sockets
+
+    sockets._CONNEXIONS_PAR_ADRESSE.clear()
+    sockets._ADRESSE_DE_LA_CONNEXION.clear()
 
 
 @pytest.fixture

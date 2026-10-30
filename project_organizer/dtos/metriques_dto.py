@@ -17,6 +17,7 @@ class MetriquesTempsReelDto(ModeleApi):
     fermetures_total: int
     messages_total: int
     abonnements_refuses: int
+    connexions_refusees: int
     coupures_pour_debit: int
     coupures_pour_expiration: int
     coupures_pour_revocation: int

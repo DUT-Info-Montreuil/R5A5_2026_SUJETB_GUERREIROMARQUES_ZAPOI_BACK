@@ -318,6 +318,7 @@ client, et l'appartenance à l'équipe est revérifiée à chaque `equipe:suivre
 | Ping / délai du pong | 20 s / 15 s | `SOCKET_PING_INTERVALLE_SECONDES`, `SOCKET_PING_DELAI_SECONDES` |
 | Taille d'un message reçu | 4 096 octets | `SOCKET_TAILLE_MAX_OCTETS` |
 | Événements par connexion | 30 par 10 s | `SOCKET_EVENEMENTS_MAX`, `SOCKET_FENETRE_DEBIT_SECONDES` |
+| Connexions simultanées par adresse IP | 20 (au-delà, refusée à l'ouverture) | `SOCKET_CONNEXIONS_MAX_PAR_ADRESSE` |
 | Vérification des jetons expirés ou révoqués | toutes les 30 s | `SOCKET_VERIFICATION_SECONDES` |
 | Messages de chat | 30 par minute et par utilisateur | `LIMITE_MESSAGES` |
 
@@ -375,8 +376,11 @@ des oublis. Les justifications vont dans les fiches de décision.
    invalide immédiatement les requêtes HTTP, mais une connexion déjà ouverte
    n'est fermée que par la boucle de surveillance, au plus 30 s plus tard
    (`SOCKET_VERIFICATION_SECONDES`), ou tout de suite si l'équipe exclut le joueur.
-4. **Plafonds par connexion, pas par adresse** : un client qui ouvre beaucoup
-   de connexions multiplie son plafond. Le limiteur HTTP, lui, est par adresse
+4. **Plafond d'événements par connexion, plafond de connexions par adresse** :
+   20 connexions simultanées par adresse IP au plus, ce qui borne aussi le débit
+   total d'un client. Une salle entière derrière une seule adresse publique (NAT)
+   partage ces 20 places : relever `SOCKET_CONNEXIONS_MAX_PAR_ADRESSE` si besoin.
+   Le limiteur HTTP, lui, est par adresse
    (par utilisateur pour le chat) et **mémoire locale** : il repart de zéro au
    redémarrage.
 5. **Derrière un proxy**, définir `PROXIES_DE_CONFIANCE=1`, sinon tous les

@@ -73,6 +73,11 @@ class MetriquesTempsReel:
         with self._verrou:
             self._compteurs["abonnementsRefuses"] += 1
 
+    def connexion_refusee(self) -> None:
+        """Une connexion refusée à l'ouverture : son adresse a déjà trop de connexions ouvertes."""
+        with self._verrou:
+            self._compteurs["connexionsRefusees"] += 1
+
     def coupure(self, motif: str) -> None:
         """Une connexion coupée par le serveur : « debit » (trop d'événements), « expiration » (jeton expiré)
         ou « revocation » (jeton révoqué par une déconnexion)."""
@@ -100,6 +105,7 @@ class MetriquesTempsReel:
                 "fermeturesTotal": self._compteurs["fermetures"],
                 "messagesTotal": self._compteurs["messages"],
                 "abonnementsRefuses": self._compteurs["abonnementsRefuses"],
+                "connexionsRefusees": self._compteurs["connexionsRefusees"],
                 "coupuresPourDebit": self._compteurs["coupures_debit"],
                 "coupuresPourExpiration": self._compteurs["coupures_expiration"],
                 "coupuresPourRevocation": self._compteurs["coupures_revocation"],
