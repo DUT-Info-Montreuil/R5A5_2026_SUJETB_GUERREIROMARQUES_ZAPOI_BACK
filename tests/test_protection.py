@@ -47,3 +47,14 @@ def test_les_reponses_portent_les_en_tetes_de_securite(client):
     assert entetes["X-Content-Type-Options"] == "nosniff"
     assert entetes["X-Frame-Options"] == "DENY"
     assert "default-src 'none'" in entetes["Content-Security-Policy"]
+
+
+def test_hsts_n_est_annonce_qu_en_https(client, monkeypatch):
+    """En HTTP (COOKIE_SECURE=false) l'en-tête serait ignoré : on ne le pose pas."""
+    from project_organizer.config import Config
+
+    monkeypatch.setattr(Config, "COOKIE_SECURE", False)
+    assert "Strict-Transport-Security" not in client.get("/health").headers
+
+    monkeypatch.setattr(Config, "COOKIE_SECURE", True)
+    assert client.get("/health").headers["Strict-Transport-Security"] == "max-age=63072000; includeSubDomains"

@@ -99,7 +99,8 @@ des **règles de composition ou de jeu**.
 - Cache : les `GET` publics réussis portent `Cache-Control: no-cache` et un `ETag` (le navigateur revalide, l'API répond `304` si rien n'a changé) ; tout le reste de `/api` est `no-store`. Jamais de `max-age` (contrat §1.5).
 - Chaque réponse porte `X-Request-Id` : à donner pour retrouver la ligne de log.
 - Chaque réponse porte `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`
-  et une `Content-Security-Policy` stricte (sauf la page Swagger).
+  et une `Content-Security-Policy` stricte (sauf la page Swagger) ; avec `COOKIE_SECURE=true`
+  (HTTPS), aussi `Strict-Transport-Security`.
 - `PATCH` : liste blanche de champs **par rôle** ; un champ hors liste → 400.
 
 ---
