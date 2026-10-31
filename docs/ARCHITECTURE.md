@@ -384,7 +384,8 @@ un autre algorithme est refusé en 401.
 
 **En-têtes de sécurité** : `utils/entetes_securite.py` pose `nosniff`,
 `X-Frame-Options: DENY` et une `Content-Security-Policy` stricte sur toutes les
-réponses, sauf la page Swagger.
+réponses, sauf la page Swagger. `Strict-Transport-Security` s'y ajoute quand
+`COOKIE_SECURE=true` (site en HTTPS) ; en HTTP il serait ignoré.
 
 **Cache HTTP** : `utils/cache_http.py` applique une politique unique. Les `GET`
 publics réussis reçoivent `Cache-Control: no-cache` et un `ETag` (le navigateur
