@@ -45,6 +45,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      # Le service postgres démarre avec une base VIDE : contrairement à docker-compose.yml, rien ne monte
+      # le dossier sql/ dans docker-entrypoint-initdb.d. On rejoue donc ici, dans le même ordre que Docker
+      # (alphabétique), le schéma puis les tests d'intégrité de la base.
+      - name: Créer le schéma de la base
+        env:
+          PGPASSWORD: r5a5
+        run: |
+          psql -h 127.0.0.1 -U r5a5 -d tournois -v ON_ERROR_STOP=1 -f sql/schema_R5A5_sujetB.sql
+          psql -h 127.0.0.1 -U r5a5 -d tournois -v ON_ERROR_STOP=1 -f sql/tests_contraintes.sql
+
       - name: Run tests
         run: |
           python -m pytest -q
