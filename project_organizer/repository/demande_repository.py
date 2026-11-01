@@ -43,6 +43,7 @@ def ajouter(session: Session, id_equipe: int, id_utilisateur: int) -> DemandeAdh
     session.refresh(demande)
     return demande
 
+
 def en_attente_de(session: Session, id_utilisateur: int) -> list[tuple[DemandeAdhesion, Equipe, Tournoi]]:
     """Les demandes d'un joueur qui attendent encore une réponse, avec l'équipe et le tournoi visés."""
     requete = (

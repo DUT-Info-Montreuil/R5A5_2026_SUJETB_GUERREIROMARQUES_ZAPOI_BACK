@@ -93,7 +93,6 @@ def enregistrer_gestionnaires(app: Flask) -> None:
         return jsonify({"erreur": "Internal Server Error", "detail": "Erreur interne."}), 500
 
 
-
 # --- Crochets de flask-pydantic-spec -----------------------------------------
 # La bibliothèque produit ses propres réponses d'erreur ; ces deux crochets les
 # réécrivent au format du contrat, pour que le front n'ait qu'une forme à lire.

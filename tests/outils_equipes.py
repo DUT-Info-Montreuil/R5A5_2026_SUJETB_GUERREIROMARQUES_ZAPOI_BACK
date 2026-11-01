@@ -89,6 +89,7 @@ def monter_decor(fabrique_clients, jeu) -> SimpleNamespace:
         id_equipe=equipe_creee(capitaine, id_tournoi, "Les Rouges", jeu["postes"][0]),
     )
 
+
 def monter_duel(fabrique_clients, jeu) -> SimpleNamespace:
     """Un tournoi à 2 équipes complètes, lancé : une finale jouable entre « Alpha » et « Beta ».
 
