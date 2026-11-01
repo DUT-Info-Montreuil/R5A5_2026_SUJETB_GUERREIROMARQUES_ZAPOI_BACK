@@ -22,7 +22,7 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd="pg_isready -U r5a5 -d tournois"
-          --health-timeout=5s
+          --health-interval=5s
           --health-timeout=5s
           --health-retries=10
 

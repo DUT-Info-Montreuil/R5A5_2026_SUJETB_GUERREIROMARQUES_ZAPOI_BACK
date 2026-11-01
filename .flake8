@@ -1,0 +1,5 @@
+[flake8]
+# Les commentaires et docstrings sont en français et volontairement explicatifs : la longueur de
+# ligne (E501) n'est pas contrôlée. Le reste (espacement, lignes vides, instructions multiples) l'est.
+extend-ignore = E501
+exclude = .git,__pycache__,.venv,venv,.pytest_cache

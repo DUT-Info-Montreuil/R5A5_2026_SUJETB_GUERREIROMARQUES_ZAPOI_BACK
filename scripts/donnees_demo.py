@@ -236,7 +236,8 @@ class Demo:
         if not self.tournoi_existe(NOMS_DE_TOURNOIS[0]):
             t = self.creer_tournoi(NOMS_DE_TOURNOIS[0], "League of Legends", jeux, 8, 21)
             self.huit_equipes(t, jeux["League of Legends"][1], decalage=0)
-            self.changer_statut(t, "INSCRIPTIONS_CLOSES"); self.changer_statut(t, "EN_COURS")
+            self.changer_statut(t, "INSCRIPTIONS_CLOSES")
+            self.changer_statut(t, "EN_COURS")
             self.jouer(t, 5)  # les quatre quarts de finale et une demi-finale
             # Le tirage au sort décide qui est encore en lice : on écrit dans une équipe qui l'est.
             vivante = next(e for e in self.equipes_de(NOMS_DE_TOURNOIS[0]) if e["statut_equipe"] == "EN_LICE")
@@ -272,7 +273,8 @@ class Demo:
         if not self.tournoi_existe(NOMS_DE_TOURNOIS[5]):
             t = self.creer_tournoi(NOMS_DE_TOURNOIS[5], "League of Legends", jeux, 8, 200)
             self.huit_equipes(t, jeux["League of Legends"][1], decalage=20)
-            self.changer_statut(t, "INSCRIPTIONS_CLOSES"); self.changer_statut(t, "EN_COURS")
+            self.changer_statut(t, "INSCRIPTIONS_CLOSES")
+            self.changer_statut(t, "EN_COURS")
             self.jouer(t, None)
             self.changer_statut(t, "TERMINE")
             faits.append(NOMS_DE_TOURNOIS[5])
@@ -291,7 +293,8 @@ class Demo:
             if not self.tournoi_existe(nom):
                 t = self.creer_tournoi(nom, jeu, jeux, 8, age)
                 self.huit_equipes(t, jeux[jeu][1], decalage=decalage)
-                self.changer_statut(t, "INSCRIPTIONS_CLOSES"); self.changer_statut(t, "EN_COURS")
+                self.changer_statut(t, "INSCRIPTIONS_CLOSES")
+                self.changer_statut(t, "EN_COURS")
                 self.jouer(t, matchs)
                 if matchs is None:
                     self.changer_statut(t, "TERMINE")

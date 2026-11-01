@@ -43,6 +43,7 @@ def ajouter(session: Session, id_tournoi: int, nom_equipe: str) -> Equipe:
     session.refresh(equipe)
     return equipe
 
+
 def supprimer(session: Session, id_equipe: int) -> None:
     """Supprime l'équipe ; la base retire avec elle ses membres, ses demandes et ses messages (ON DELETE CASCADE)."""
     session.execute(delete(Equipe).where(Equipe.id_equipe == id_equipe))
