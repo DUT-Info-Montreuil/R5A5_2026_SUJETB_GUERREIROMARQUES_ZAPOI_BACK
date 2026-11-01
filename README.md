@@ -365,6 +365,7 @@ Les valeurs fournies sont celles du développement local. Avant d'exposer l'API
 - un autre mot de passe pour la base que `r5a5`, hors du dépôt ;
 - `CORS_ORIGINS` = l'adresse publique du site ; `PROXIES_DE_CONFIANCE=1` derrière nginx ;
 - `LOG_FORMAT=json` pour que les logs soient exploitables ;
+- `FLASK_DEBUG=false` (ou absent) : le mode debug n'est jamais pour la production ;
 - ne **pas** lancer `donnees_demo.py` : ses mots de passe sont publics.
 
 ---
