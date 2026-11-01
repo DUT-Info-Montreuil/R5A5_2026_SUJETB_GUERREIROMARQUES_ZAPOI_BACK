@@ -46,7 +46,7 @@ récentes fonctionneront sans doute, mais elles n'ont pas été vérifiées.
 | PostgreSQL | **16** | Base de données (image `postgres:16`, rien à installer) |
 | Node.js | **22** (npm 10) | Front en développement (l'image Docker utilise `node:22-alpine`) |
 | Flask / Flask-SocketIO | 3.1.3 / 5.6.1 | API et temps réel (Socket.IO) |
-| SQLAlchemy / pg8000 | 2.0.54 / 1.31.5 | Accès à la base |
+| SQLAlchemy / pg8000 | 2.0.54 / 1.31.6 | Accès à la base |
 | React / Vite / TypeScript | 19 / 8.3.5 / 6.0 | Interface |
 | Git | récent | Clonage des deux dépôts |
 
