@@ -16,6 +16,7 @@
 [![CI Backend](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/ci.yml)
 [![Lint](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/lint.yml)
 [![Docker Build](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/docker.yml)
+[![Licence CC BY-NC-SA 4.0](https://img.shields.io/badge/licence-CC%20BY--NC--SA%204.0-lightgrey?logo=creativecommons&logoColor=white)](LICENSE)
 
 API de la plateforme de tournois de l'association étudiante (R5A5, sujet B).
 
@@ -534,3 +535,31 @@ usage anormal, par exemple un script qui boucle.
 Le script a été extrait avec des fins de ligne Windows (CRLF). Voir la note
 « Fins de ligne » plus haut : recloner le dépôt, ou `git rm --cached -r .` puis
 `git reset --hard`.
+
+---
+
+## Licence
+
+Ce projet est publié sous la licence **Creative Commons Attribution - Pas d'Utilisation Commerciale -
+Partage dans les Mêmes Conditions 4.0 International (CC BY-NC-SA 4.0)**. Le texte complet est dans
+[`LICENSE`](LICENSE) ; un résumé en français est sur https://creativecommons.org/licenses/by-nc-sa/4.0/deed.fr.
+
+Copyright (c) 2026 Denis Zapoi et Fabio Guerreiro-Marques, BUT Informatique, IUT de Montreuil.
+
+Vous pouvez copier, modifier et redistribuer ce code, **à trois conditions** :
+
+- **Citer l'origine (BY).** Nommer les auteurs, donner le lien du dépôt d'origine
+  (https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK), indiquer la licence et signaler vos modifications.
+- **Pas d'usage commercial (NC).** Interdit de vendre ce code ou un produit qui l'embarque, ou de s'en servir
+  pour gagner de l'argent.
+- **Garder la même licence (SA).** Tout travail dérivé doit être publié sous la même licence, donc rester ouvert
+  à la lecture et à la réutilisation non commerciale.
+
+Ce n'est donc pas une licence « open source » au sens strict de l'OSI (qui n'autorise aucune restriction
+d'usage commercial) : le code est public et réutilisable, dans ces limites.
+
+**Ce que la licence ne couvre pas :**
+- les dépendances listées dans `requirements.txt`, qui gardent chacune leur propre licence ;
+- les noms de jeux et de marques cités dans les données de démonstration, qui restent la propriété de leurs éditeurs.
+
+Le projet est un travail pédagogique, fourni « en l'état », sans garantie.
