@@ -15,7 +15,7 @@
 ![R5A5 sujet B](https://img.shields.io/badge/R5A5-sujet%20B-8A2BE2)
 [![CI Backend](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/ci.yml)
 [![Lint](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/lint.yml)
-[![Docker Build](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/docker.yml)
+[![Pile Docker](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_BACK/actions/workflows/docker.yml)
 [![Licence CC BY-NC-SA 4.0](https://img.shields.io/badge/licence-CC%20BY--NC--SA%204.0-lightgrey?logo=creativecommons&logoColor=white)](LICENSE)
 
 API de la plateforme de tournois de l'association étudiante (R5A5, sujet B).
