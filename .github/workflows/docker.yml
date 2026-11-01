@@ -1,4 +1,9 @@
-name: Docker Build
+name: Pile Docker complète
+
+# Reproduit le chemin du correcteur : les deux dépôts côte à côte, puis
+# `docker compose -f docker-compose.complet.yml up --build`. Construire l'image ne suffit pas : l'API
+# peut se construire et ne jamais démarrer (c'est arrivé avec scramp). On vérifie donc qu'elle répond
+# vraiment, à travers nginx, comme dans le navigateur.
 
 on:
   push:
@@ -7,13 +12,66 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COMPOSE: docker compose -f docker-compose.complet.yml
+  SITE: http://localhost:8080
+
 jobs:
-  build:
+  pile-complete:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout
+      # Le compose du back construit le front depuis ../front : les deux dépôts doivent être côte à côte.
+      - name: Récupérer le back
         uses: actions/checkout@v4
+        with:
+          path: back
 
-      - name: Build Docker image
-        run: docker build -t agon-cup-back .
+      - name: Récupérer le front
+        uses: actions/checkout@v4
+        with:
+          repository: DUT-Info-Montreuil/R5A5_2026_SUJETB_GUERREIROMARQUES_ZAPOI_FRONT
+          path: front
+
+      # --wait : attend que db, api et front soient « healthy » (échoue sinon).
+      - name: Construire et démarrer la pile
+        working-directory: back
+        run: ${{ env.COMPOSE }} up -d --build --wait
+
+      - name: L'API et la base répondent, à travers nginx
+        run: |
+          curl -fsS "$SITE/health" | tee health.json
+          grep -q '"statut":"ok"' health.json
+
+      - name: Le front est servi
+        run: curl -fsS "$SITE/" | grep -q 'id="root"'
+
+      - name: Le temps réel répond (Socket.IO)
+        run: curl -fsS "$SITE/socket.io/?EIO=4&transport=polling" | grep -q '"sid"'
+
+      - name: Charger les données de démonstration
+        working-directory: back
+        run: ${{ env.COMPOSE }} --profile demo run --rm demo
+
+      - name: Les tournois de démonstration sont visibles sans compte (B-02)
+        run: curl -fsS "$SITE/api/tournois" | grep -q "Coupe Inter-IUT"
+
+      - name: Un visiteur ne peut pas créer de tournoi (B-01)
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H 'Content-Type: application/json' -d '{}' "$SITE/api/tournois")
+          echo "code HTTP : $code"
+          test "$code" = 401
+
+      - name: Journaux des conteneurs (en cas d'échec)
+        if: failure()
+        working-directory: back
+        run: ${{ env.COMPOSE }} logs --no-color --tail=200
