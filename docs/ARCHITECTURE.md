@@ -14,7 +14,7 @@ d'écrire la première route.
 | Transport WebSocket en développement | simple-websocket | 1.1.0 |
 | Autorisation des appels depuis le front | Flask-Cors | 6.0.5 |
 | Accès à la base | SQLAlchemy | 2.0.54 |
-| Pilote PostgreSQL | pg8000 | 1.31.5 |
+| Pilote PostgreSQL | pg8000 | 1.31.6 |
 | Jeton JWT en cookie | flask-jwt-extended | 4.7.4 |
 | Hachage des mots de passe | argon2-cffi | 25.1.0 |
 | Limitation de débit | Flask-Limiter | 4.1.1 |

@@ -16,7 +16,10 @@ simple-websocket==1.1.0
 
 # Accès base de données
 SQLAlchemy==2.0.54
-pg8000==1.31.5
+pg8000==1.31.6
+# pg8000 1.31.6 exige scramp==1.5.0 (dépendance transitive) : avec pg8000 1.31.5, pip installait la dernière
+# version de scramp, incompatible (« module 'scramp' has no attribute 'make_channel_binding' »), et l'API
+# ne pouvait plus se connecter à la base. Ne changer ces deux versions que ensemble, après avoir lancé les tests.
 
 # Validation des entrées et documentation d'API (OpenAPI + Swagger UI)
 pydantic==2.13.5
