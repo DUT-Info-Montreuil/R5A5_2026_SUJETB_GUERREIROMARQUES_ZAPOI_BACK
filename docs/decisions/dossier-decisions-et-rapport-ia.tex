@@ -207,12 +207,52 @@ Tout est visible dans les dépôts : les commits faits avec Claude Code y sont s
 
 \subsection*{2. Nos prompts}
 
-Voici trois de nos prompts, recopiés tels quels, avec nos fautes de dictée.
+Voici trois de nos prompts. On avait d'abord écrit de premiers prompts, puis on a demandé à l'IA de les retravailler, parce qu'il n'y a pas mieux que l'IA pour expliquer clairement à une autre IA ce qu'on veut. Pour chacun, on donne les deux : le prompt d'origine, recopié tel quel avec nos fautes de dictée, puis la version retravaillée par l'IA, recopiée telle quelle.
 
 \subsubsection*{Prompt 1 — partir d'un plan, en validant chaque étape (15 octobre)}
 
 \begin{prompt}
+\textbf{Prompt d'origine (dicté).}\par\vspace{0.3em}
 Ok, bon, j'ai pas encore accepté les PR, mais on fera ça plus tard. J'aimerais que tu analyses du coup mon projet, donc mon back et mon front. Et j'aimerais, parce qu'en fait, tu vois, pour le moment, je n'ai que créé la page de connexion ainsi que euh, la page principale. Euh, maintenant, ce que j'aimerais bien faire, c'est voilà, tu vois, commencer à m'attarder à bah, création de tournoi, euh, gestion du tournoi, euh, système de chat et compagnie. Genre vraiment, je vais pas dire finir le projet, tu vois, mais vraiment avancer, avancer, avancer. Est-ce que tu pourrais me fournir euh, des documents, un document, un, soit un point MD ou n'importe, hein, je ne sais pas. Des classes que je dois rajouter, des trucs que je dois modifier, compagnie. Donc, je te demanderai pas toi de me faire les les modifications. Je le ferai moi-même. Mais voilà, dis-moi euh, quelles sont les classes que je dois changer, les éléments. Enfin, donne-moi le code en entier de chaque classe. Voilà, euh, de celles qui sont modifiées ou supprimées ou ajoutées ou n'importe. Mais comme ça, ce sera moi qui fera le commit et compagnie, tu vois. Donc, est-ce que tu peux lire le sujet, regarder les attentes, et à partir de ce moment-là, et à partir de ce que j'ai déjà fait et compagnie, voilà, commencer déjà à mettre en place le système de tournoi, le système de chat, de compte, euh, et compagnie, quoi. J'ai envie de te dire un peu avoir déjà fini le projet. On fera ça petit à petit. Si tu peux pas faire ça en une seule demande, ce n'est pas grave. On va faire petit à petit, comme ça on peut valider chaque étape.
+\end{prompt}
+
+\begin{prompt}
+\textbf{Version retravaillée par l'IA.}\par\vspace{0.3em}
+\setlength{\parskip}{0.15em}
+\textbf{\#\# Contexte}\par
+Je travaille sur un projet avec un back-end et un front-end. Pour l'instant, j'ai seulement réalisé :\par
+- la page de connexion\par
+- la page principale\par
+\vspace{0.45em}
+J'ai des PR en attente que je n'ai pas encore mergées ; ignore-les pour l'instant.\par
+\vspace{0.45em}
+\textbf{\#\# Objectif}\par
+Je veux avancer fortement sur le projet, en particulier sur :\par
+- la création de tournois\par
+- la gestion des tournois\par
+- le système de chat\par
+- la gestion des comptes utilisateurs\par
+- les autres fonctionnalités demandées par le sujet\par
+\vspace{0.45em}
+\textbf{\#\# Ce que tu dois faire}\par
+1. Lis le sujet du projet et liste les attentes et exigences obligatoires.\par
+2. Analyse mon code existant (back et front) : architecture, conventions, ce qui est déjà fait.\par
+3. Compare les deux et propose un plan de développement découpé en étapes ordonnées (ex. : étape 1 = comptes, étape 2 = tournois…).\par
+4. Réalise uniquement la première étape, puis attends ma validation avant de passer à la suivante.\par
+\vspace{0.45em}
+\textbf{\#\# Contraintes}\par
+- Ne modifie AUCUN fichier toi-même. Je fais les modifications et les commits moi-même.\par
+- Respecte l'architecture, le style et les conventions déjà présents dans mon code.\par
+- Pour chaque classe ou fichier concerné, donne le code COMPLET (pas d'extraits ni de « … reste inchangé »).\par
+\vspace{0.45em}
+\textbf{\#\# Format de sortie}\par
+Un document Markdown (.md) par étape, contenant :\par
+- un résumé de l'étape et de ce qu'elle apporte\par
+- la liste des fichiers, classée en : ajoutés / modifiés / supprimés\par
+- pour chaque fichier ajouté ou modifié : son chemin et son code complet\par
+- pour chaque fichier supprimé : son chemin et la raison\par
+- les éventuelles migrations, dépendances ou commandes à lancer\par
+- comment tester que l'étape fonctionne\par
 \end{prompt}
 
 \textbf{Ce que ça donnait au départ.} À ce moment, on n'avait fait que la page de connexion et la page principale. On voulait que Claude nous dise quelles classes ajouter ou modifier, avec leur code entier, pour faire nous-mêmes les commits.
@@ -224,7 +264,24 @@ Ok, bon, j'ai pas encore accepté les PR, mais on fera ça plus tard. J'aimerais
 \subsubsection*{Prompt 2 — cadrer la question pour obtenir une réponse courte (15 octobre)}
 
 \begin{prompt}
+\textbf{Prompt d'origine (dicté).}\par\vspace{0.3em}
 dis, j'ai juste une question comme ça. Tu sais, on a vu le temps réel et compagnie et tout. Je me disais, est-ce que dans le système de chat, est-ce qu'on ferait un truc qui permettrait d'envoyer des photos ou des vidéos ou compagnie, ou est-ce que ce serait trop compliqué, il faudrait gérer ça côté serveur ou des trucs comme ça ? Parce qu'après, en fait, le rendu, qu'on doit donner, c'est un truc que notre prof, il va déployer lui-même chez lui et tout, tu vois, genre pour tester. Donc je me dis, est-ce qu'on va vraiment, on a besoin de faire ça ? Est-ce qu'on peut faire ça ou pas ? Je veux juste une réponse. Je veux un oui ou un non avec deux, trois petites explications, mais voilà, commence pas à partir dans les détails ou commence à vouloir implémenter ça.
+\end{prompt}
+
+\begin{prompt}
+\textbf{Version retravaillée par l'IA.}\par\vspace{0.3em}
+\setlength{\parskip}{0.15em}
+Question rapide, sans implémentation :\par
+\vspace{0.45em}
+Dans notre système de chat en temps réel, est-ce que ça vaut le coup d'ajouter l'envoi de photos ou de vidéos ?\par
+\vspace{0.45em}
+Contexte : le projet sera déployé et testé en local par notre prof, sur sa propre machine.\par
+\vspace{0.45em}
+Je veux savoir :\par
+- si c'est faisable dans ces conditions (notamment ce que ça implique côté serveur)\par
+- si c'est vraiment nécessaire pour le rendu\par
+\vspace{0.45em}
+Format de réponse attendu : un « oui » ou un « non », suivi de 2 ou 3 explications courtes. Pas de détails techniques ni de code.\par
 \end{prompt}
 
 \textbf{Ce que ça donnait au départ.} Une idée en passant : permettre d'envoyer des photos ou des vidéos dans le chat.
@@ -236,7 +293,30 @@ dis, j'ai juste une question comme ça. Tu sais, on a vu le temps réel et compa
 \subsubsection*{Prompt 3 — déléguer des corrections dans des pull requests (27 octobre)}
 
 \begin{prompt}
+\textbf{Prompt d'origine (dicté).}\par\vspace{0.3em}
 Ok, bah écoute, s'il te plaît, est-ce que tu peux lister les dernières, enfin, corriger les dernières choses qui manquent à travers une PR que tu feras dans le back et dans le front. Ensuite, après, tu me parles d'un écran, mon prochain match, puis un Docker Compose pour toute la pile. Ajoute ça aussi, parce que c'est très important, par la même occasion. Tu m'as dit, du coup, que la documentation et tout ça a été faite. Bah écoute, je te crois à ce niveau-là. Bon, du coup, je vais éviter de t'envoyer chaque cours de chaque page de Thomas Louvet parce que c'est un peu énorme. Enfin, la page de mon prof, c'est un peu beaucoup. Mais du coup, je pense que tu peux juste te baser au niveau des chapitres et ça devrait suffire. La manière dont on va faire ça, c'est voilà. Fais des PR pour faire des modifications par rapport à ce qui manque. Ensuite, après avoir fait tout ça, on va changer 2-3 trucs, toi et moi, au niveau du site, genre le texte et compagnie et tout. Et ensuite, après avoir fait ça, on va s'assurer de faire des jolis readme pour un bon déploiement, pour un déploiement facile en local sur l'ordinateur de mon prof. Ensuite, après avoir fait ça, on va s'assurer\ldots{} encore une fois de la documentation hein, de façon à ce que ça soit bon et ensuite après on va faire tout le travail de journalisation donc voilà.
+\end{prompt}
+
+\begin{prompt}
+\textbf{Version retravaillée par l'IA.}\par\vspace{0.3em}
+\setlength{\parskip}{0.15em}
+\textbf{\#\# Contexte}\par
+Tu m'as indiqué que la documentation était déjà faite ; je pars de ce principe.\par
+\vspace{0.45em}
+\textbf{\#\# Étape 1 : PR de complétion (à faire maintenant)}\par
+Ouvre une PR sur le back et une PR sur le front pour corriger tout ce qui manque encore. Inclus notamment :\par
+- l'écran « Mon prochain match » que tu m'as proposé\par
+- un Docker Compose qui lance toute la pile (back, front, base de données, etc.) — c'est prioritaire\par
+\vspace{0.45em}
+Avant de coder, liste-moi ce qui manque, puis réalise les PR.\par
+\vspace{0.45em}
+\textbf{\#\# Étapes suivantes (ne pas commencer sans mon feu vert)}\par
+2. Ajustements du site ensemble (textes, contenus, etc.)\par
+3. README clairs pour un déploiement local simple sur la machine de mon prof\par
+4. Vérification finale de la documentation\par
+5. Mise en place de la journalisation\par
+\vspace{0.45em}
+Arrête-toi après l'étape 1 et attends ma validation avant de passer à la suivante.\par
 \end{prompt}
 
 \textbf{Ce que ça donnait au départ.} Une demande large : corriger ce qui manquait, ajouter l'écran \og mon prochain match \fg{} et un docker-compose pour toute la pile, puis passer aux README et à la journalisation.
